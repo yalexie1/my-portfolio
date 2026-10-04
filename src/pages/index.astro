@@ -30,7 +30,7 @@ const links = {
 	</head>
 	<body>
 		<header class="site-header">
-			<a class="monogram" href="/" aria-label={`${name} — home`}>YX</a>
+			<a class="site-name" href="/">{name}</a>
 			<nav class="socials" aria-label="Social links">
 				<a href={links.github} target="_blank" rel="noopener noreferrer">GitHub ↗</a>
 				<a href={links.linkedin} target="_blank" rel="noopener noreferrer">LinkedIn ↗</a>
@@ -167,7 +167,7 @@ const links = {
 		border-bottom: 1px solid var(--line);
 	}
 
-	.monogram {
+	.site-name {
 		font-family: var(--font-display);
 		font-size: 1.4rem;
 		font-style: italic;
@@ -176,7 +176,7 @@ const links = {
 		text-decoration: none;
 	}
 
-	.monogram:hover {
+	.site-name:hover {
 		color: var(--moss);
 	}
 
