@@ -29,18 +29,22 @@ const links = {
 		<title>{name}</title>
 	</head>
 	<body>
-		<header class="hero">
+		<header class="site-header">
+			<a class="monogram" href="/" aria-label={`${name} — home`}>YX</a>
+			<nav class="socials" aria-label="Social links">
+				<a href={links.github} target="_blank" rel="noopener noreferrer">GitHub ↗</a>
+				<a href={links.linkedin} target="_blank" rel="noopener noreferrer">LinkedIn ↗</a>
+				<a href={links.resume} target="_blank" rel="noopener noreferrer">Resume ↗</a>
+			</nav>
+		</header>
+
+		<section class="hero">
 			<div class="hero-text">
 				<p class="eyebrow">Yale University · New Haven, CT</p>
 				<h1>
 					<span>Yale</span>
 					<em>Xie</em>
 				</h1>
-				<nav class="socials" aria-label="Social links">
-					<a href={links.github} target="_blank" rel="noopener noreferrer">GitHub ↗</a>
-					<a href={links.linkedin} target="_blank" rel="noopener noreferrer">LinkedIn ↗</a>
-					<a href={links.resume} target="_blank" rel="noopener noreferrer">Resume ↗</a>
-				</nav>
 			</div>
 			<figure class="portrait">
 				<Image
@@ -52,7 +56,7 @@ const links = {
 					fetchpriority="high"
 				/>
 			</figure>
-		</header>
+		</section>
 
 		<main>
 			<section class="about" aria-labelledby="about-heading">
@@ -148,13 +152,41 @@ const links = {
 </style>
 
 <style>
+	/* ---------- Header ---------- */
+	.site-header {
+		position: sticky;
+		top: 0;
+		z-index: 10;
+		display: flex;
+		justify-content: space-between;
+		align-items: center;
+		padding: 1.25rem 0;
+		background: color-mix(in srgb, var(--paper) 88%, transparent);
+		backdrop-filter: blur(8px);
+		-webkit-backdrop-filter: blur(8px);
+		border-bottom: 1px solid var(--line);
+	}
+
+	.monogram {
+		font-family: var(--font-display);
+		font-size: 1.4rem;
+		font-style: italic;
+		font-weight: 500;
+		color: var(--ink);
+		text-decoration: none;
+	}
+
+	.monogram:hover {
+		color: var(--moss);
+	}
+
 	/* ---------- Hero ---------- */
 	.hero {
 		display: grid;
 		grid-template-columns: 1.3fr 1fr;
 		align-items: end;
 		gap: 3rem;
-		padding: 6rem 0 4rem;
+		padding: 5rem 0 4rem;
 		border-bottom: 1px solid var(--line);
 	}
 
@@ -190,7 +222,6 @@ const links = {
 	.socials {
 		display: flex;
 		gap: 1.5rem;
-		margin-top: 2.5rem;
 	}
 
 	.socials a {
@@ -291,17 +322,16 @@ const links = {
 
 	/* ---------- Load animation ---------- */
 	@media (prefers-reduced-motion: no-preference) {
+		.site-header,
 		.eyebrow,
 		h1 span,
 		h1 em,
-		.hero .socials,
 		.portrait,
 		main section {
 			animation: rise 0.8s cubic-bezier(0.2, 0.7, 0.2, 1) backwards;
 		}
 		h1 span { animation-delay: 0.08s; }
 		h1 em { animation-delay: 0.16s; }
-		.hero .socials { animation-delay: 0.26s; }
 		.portrait { animation-name: rise-tilt; animation-delay: 0.2s; }
 		main section:nth-child(1) { animation-delay: 0.35s; }
 		main section:nth-child(2) { animation-delay: 0.45s; }
@@ -327,6 +357,14 @@ const links = {
 			grid-template-columns: 1fr;
 			padding: 3rem 0;
 			gap: 2.5rem;
+		}
+
+		.socials {
+			gap: 1rem;
+		}
+
+		.socials a {
+			font-size: 0.75rem;
 		}
 
 		.portrait {
