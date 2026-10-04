@@ -2,6 +2,7 @@
 import { Image } from 'astro:assets';
 import ProjectCard from '../components/ProjectCard.astro';
 import profilePicture from '../assets/profile_picture.jpg';
+import { experience } from '../data/experience';
 import { projects } from '../data/projects';
 
 const name = 'Yale Xie';
@@ -78,6 +79,28 @@ const links = {
 						statistical modeling.
 					</p>
 				</div>
+			</section>
+
+			<section class="experience" aria-labelledby="experience-heading">
+				<h2 id="experience-heading" class="section-label">Experience</h2>
+				<ol class="timeline">
+					{
+						experience.map((job) => (
+							<li class="job">
+								<p class="job-dates">{job.dates}</p>
+								<h3>{job.role}</h3>
+								<p class="job-company">
+									{job.company} · {job.location}
+								</p>
+								<ul>
+									{job.highlights.map((highlight) => (
+										<li>{highlight}</li>
+									))}
+								</ul>
+							</li>
+						))
+					}
+				</ol>
 			</section>
 
 			<section class="projects" aria-labelledby="projects-heading">
@@ -299,6 +322,95 @@ const links = {
 		border-bottom: 1px solid var(--line);
 	}
 
+	/* ---------- Experience (left-to-right timeline, newest first) ---------- */
+	main section.experience {
+		grid-template-columns: 1fr;
+	}
+
+	.timeline {
+		--timeline-gap: 2.5rem;
+		display: grid;
+		grid-template-columns: repeat(3, 1fr);
+		gap: var(--timeline-gap);
+		margin: 0;
+		padding: 0;
+		list-style: none;
+	}
+
+	.job {
+		position: relative;
+		padding-top: 2rem;
+	}
+
+	/* Timeline rail, extended across the gap so it reads as one continuous line */
+	.job::after {
+		content: '';
+		position: absolute;
+		top: 0;
+		left: 0;
+		width: calc(100% + var(--timeline-gap));
+		border-top: 1px solid var(--line);
+	}
+
+	.job:last-child::after {
+		width: 100%;
+	}
+
+	/* Timeline node; the most recent role is filled in */
+	.job::before {
+		content: '';
+		position: absolute;
+		z-index: 1;
+		top: -6px;
+		left: 0;
+		width: 11px;
+		height: 11px;
+		border: 1px solid var(--moss);
+		border-radius: 50%;
+		background: var(--paper);
+	}
+
+	.job:first-child::before {
+		background: var(--moss);
+	}
+
+	.job-dates {
+		margin: 0 0 0.75rem;
+		font-family: var(--font-mono);
+		font-size: 0.75rem;
+		letter-spacing: 0.06em;
+		color: var(--moss);
+	}
+
+	.job h3 {
+		margin: 0;
+		font-family: var(--font-display);
+		font-size: 1.45rem;
+		font-weight: 500;
+		line-height: 1.15;
+	}
+
+	.job-company {
+		margin: 0.35rem 0 1.25rem;
+		font-size: 0.9rem;
+		color: var(--ink-soft);
+	}
+
+	.job ul {
+		display: flex;
+		flex-direction: column;
+		gap: 0.75rem;
+		margin: 0;
+		padding-left: 1rem;
+		font-size: 0.88rem;
+		line-height: 1.55;
+		color: var(--ink-soft);
+	}
+
+	.job ul li::marker {
+		color: var(--moss);
+	}
+
 	.section-label {
 		margin: 0;
 		font-family: var(--font-mono);
@@ -361,6 +473,7 @@ const links = {
 		.portrait { animation-name: rise-tilt; animation-delay: 0.2s; }
 		main section:nth-child(1) { animation-delay: 0.35s; }
 		main section:nth-child(2) { animation-delay: 0.45s; }
+		main section:nth-child(3) { animation-delay: 0.55s; }
 	}
 
 	@keyframes rise {
@@ -403,6 +516,20 @@ const links = {
 			grid-template-columns: 1fr;
 			gap: 1.5rem;
 			padding: 3rem 0;
+		}
+
+		/* Keep the timeline horizontal on small screens: swipe through roles */
+		.timeline {
+			--timeline-gap: 1.5rem;
+			grid-template-columns: repeat(3, 82%);
+			overflow-x: auto;
+			scroll-snap-type: x mandatory;
+			padding-top: 6px;
+			padding-bottom: 1rem;
+		}
+
+		.job {
+			scroll-snap-align: start;
 		}
 	}
 </style>
