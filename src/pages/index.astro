@@ -1,17 +1,345 @@
 ---
+import { Image } from 'astro:assets';
+import ProjectCard from '../components/ProjectCard.astro';
+import profilePicture from '../assets/profile_picture.jpg';
+import { projects } from '../data/projects';
 
+const name = 'Yale Xie';
+const links = {
+	github: 'https://github.com/yalexie1',
+	// TODO: replace with your LinkedIn profile URL
+	linkedin: 'https://www.linkedin.com/in/yalexie',
+};
 ---
 
 <html lang="en">
 	<head>
 		<meta charset="utf-8" />
+		<meta name="viewport" content="width=device-width, initial-scale=1" />
+		<meta name="description" content={`${name} — CS + Math at Yale.`} />
+		<meta name="generator" content={Astro.generator} />
 		<link rel="icon" type="image/svg+xml" href="/favicon.svg" />
 		<link rel="icon" href="/favicon.ico" />
-		<meta name="viewport" content="width=device-width" />
-		<meta name="generator" content={Astro.generator} />
-		<title>Astro</title>
+		<link rel="preconnect" href="https://fonts.googleapis.com" />
+		<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+		<link
+			href="https://fonts.googleapis.com/css2?family=Fraunces:ital,opsz,wght@0,9..144,300..600;1,9..144,300..600&family=Instrument+Sans:wght@400;500&family=JetBrains+Mono:wght@400;500&display=swap"
+			rel="stylesheet"
+		/>
+		<title>{name}</title>
 	</head>
 	<body>
-		<h1>Astro</h1>
+		<header class="hero">
+			<div class="hero-text">
+				<p class="eyebrow">CS + Math · Yale University · New Haven, CT</p>
+				<h1>
+					<span>Yale</span>
+					<em>Xie</em>
+				</h1>
+				<nav class="socials" aria-label="Social links">
+					<a href={links.github} target="_blank" rel="noopener noreferrer">GitHub ↗</a>
+					<a href={links.linkedin} target="_blank" rel="noopener noreferrer">LinkedIn ↗</a>
+				</nav>
+			</div>
+			<figure class="portrait">
+				<Image
+					src={profilePicture}
+					alt={`Portrait of ${name}`}
+					width={720}
+					densities={[1, 2]}
+					loading="eager"
+					fetchpriority="high"
+				/>
+			</figure>
+		</header>
+
+		<main>
+			<section class="about" aria-labelledby="about-heading">
+				<h2 id="about-heading" class="section-label">About</h2>
+				<div class="about-body">
+					<!-- TODO: replace with your own description -->
+					<p class="lede">A sentence or two about who you are and what you like to build goes here.</p>
+					<p>
+						Use this space for a longer introduction — what you're studying, what you're
+						working on right now, and what kinds of problems you find interesting.
+					</p>
+				</div>
+			</section>
+
+			<section class="projects" aria-labelledby="projects-heading">
+				<h2 id="projects-heading" class="section-label">Selected Projects</h2>
+				<div class="grid">
+					{projects.map((project, index) => <ProjectCard project={project} index={index} />)}
+				</div>
+			</section>
+		</main>
+
+		<footer>
+			<p>© {new Date().getFullYear()} {name}</p>
+			<div class="socials">
+				<a href={links.github} target="_blank" rel="noopener noreferrer">GitHub</a>
+				<a href={links.linkedin} target="_blank" rel="noopener noreferrer">LinkedIn</a>
+			</div>
+		</footer>
 	</body>
 </html>
+
+<style is:global>
+	:root {
+		--paper: #f4f1e8;
+		--surface: #fbfaf5;
+		--ink: #1c2019;
+		--ink-soft: #4d5446;
+		--line: #d6d2c2;
+		--moss: #4a6b2f;
+		--font-display: 'Fraunces', Georgia, serif;
+		--font-body: 'Instrument Sans', system-ui, sans-serif;
+		--font-mono: 'JetBrains Mono', ui-monospace, monospace;
+	}
+
+	@media (prefers-color-scheme: dark) {
+		:root {
+			--paper: #141712;
+			--surface: #1b1f18;
+			--ink: #ebe8dc;
+			--ink-soft: #a9ad9d;
+			--line: #343a2e;
+			--moss: #9cbf6e;
+		}
+	}
+
+	*,
+	*::before,
+	*::after {
+		box-sizing: border-box;
+	}
+
+	html {
+		background: var(--paper);
+		color: var(--ink);
+		font-family: var(--font-body);
+		font-size: 17px;
+		line-height: 1.6;
+		-webkit-font-smoothing: antialiased;
+	}
+
+	body {
+		margin: 0 auto;
+		max-width: 1100px;
+		padding: 0 1.5rem;
+		background: var(--paper);
+	}
+
+	::selection {
+		background: var(--moss);
+		color: var(--paper);
+	}
+
+	a:focus-visible {
+		outline: 2px solid var(--moss);
+		outline-offset: 3px;
+	}
+</style>
+
+<style>
+	/* ---------- Hero ---------- */
+	.hero {
+		display: grid;
+		grid-template-columns: 1.3fr 1fr;
+		align-items: end;
+		gap: 3rem;
+		padding: 6rem 0 4rem;
+		border-bottom: 1px solid var(--line);
+	}
+
+	.eyebrow {
+		margin: 0 0 1.5rem;
+		font-family: var(--font-mono);
+		font-size: 0.75rem;
+		text-transform: uppercase;
+		letter-spacing: 0.12em;
+		color: var(--moss);
+	}
+
+	h1 {
+		margin: 0;
+		font-family: var(--font-display);
+		font-size: clamp(4.5rem, 13vw, 9.5rem);
+		font-weight: 300;
+		line-height: 0.88;
+		letter-spacing: -0.03em;
+	}
+
+	h1 span,
+	h1 em {
+		display: block;
+	}
+
+	h1 em {
+		font-style: italic;
+		color: var(--moss);
+		padding-left: 0.6em;
+	}
+
+	.socials {
+		display: flex;
+		gap: 1.5rem;
+		margin-top: 2.5rem;
+	}
+
+	.socials a {
+		font-family: var(--font-mono);
+		font-size: 0.85rem;
+		color: var(--ink);
+		text-decoration: none;
+		padding-bottom: 2px;
+		border-bottom: 1px solid var(--moss);
+		transition: color 0.2s ease;
+	}
+
+	.socials a:hover {
+		color: var(--moss);
+	}
+
+	.portrait {
+		margin: 0;
+		justify-self: end;
+		width: 100%;
+		max-width: 360px;
+		padding: 0.75rem 0.75rem 2.5rem;
+		background: var(--surface);
+		border: 1px solid var(--line);
+		box-shadow: 10px 10px 0 var(--moss);
+		transform: rotate(2deg);
+		transition: transform 0.4s ease;
+	}
+
+	.portrait:hover {
+		transform: rotate(0deg);
+	}
+
+	.portrait img {
+		display: block;
+		width: 100%;
+		height: auto;
+		aspect-ratio: 4 / 5;
+		object-fit: cover;
+		object-position: 30% 50%;
+	}
+
+	/* ---------- Sections ---------- */
+	main section {
+		display: grid;
+		grid-template-columns: 200px 1fr;
+		gap: 2rem;
+		padding: 4.5rem 0;
+		border-bottom: 1px solid var(--line);
+	}
+
+	.section-label {
+		margin: 0;
+		font-family: var(--font-mono);
+		font-size: 0.75rem;
+		font-weight: 500;
+		text-transform: uppercase;
+		letter-spacing: 0.12em;
+		color: var(--ink-soft);
+	}
+
+	.about-body {
+		max-width: 62ch;
+	}
+
+	.about-body p {
+		margin: 0 0 1.25rem;
+		color: var(--ink-soft);
+	}
+
+	.about-body .lede {
+		font-family: var(--font-display);
+		font-size: 1.9rem;
+		font-weight: 400;
+		line-height: 1.25;
+		color: var(--ink);
+	}
+
+	.grid {
+		display: grid;
+		grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+		gap: 1.75rem;
+	}
+
+	/* ---------- Footer ---------- */
+	footer {
+		display: flex;
+		justify-content: space-between;
+		align-items: center;
+		flex-wrap: wrap;
+		gap: 1rem;
+		padding: 2.5rem 0 3rem;
+		font-family: var(--font-mono);
+		font-size: 0.8rem;
+		color: var(--ink-soft);
+	}
+
+	footer p {
+		margin: 0;
+	}
+
+	footer .socials {
+		margin: 0;
+	}
+
+	/* ---------- Load animation ---------- */
+	@media (prefers-reduced-motion: no-preference) {
+		.eyebrow,
+		h1 span,
+		h1 em,
+		.hero .socials,
+		.portrait,
+		main section {
+			animation: rise 0.8s cubic-bezier(0.2, 0.7, 0.2, 1) backwards;
+		}
+		h1 span { animation-delay: 0.08s; }
+		h1 em { animation-delay: 0.16s; }
+		.hero .socials { animation-delay: 0.26s; }
+		.portrait { animation-name: rise-tilt; animation-delay: 0.2s; }
+		main section:nth-child(1) { animation-delay: 0.35s; }
+		main section:nth-child(2) { animation-delay: 0.45s; }
+	}
+
+	@keyframes rise {
+		from {
+			opacity: 0;
+			transform: translateY(16px);
+		}
+	}
+
+	@keyframes rise-tilt {
+		from {
+			opacity: 0;
+			transform: translateY(16px) rotate(6deg);
+		}
+	}
+
+	/* ---------- Responsive ---------- */
+	@media (max-width: 760px) {
+		.hero {
+			grid-template-columns: 1fr;
+			padding: 3rem 0;
+			gap: 2.5rem;
+		}
+
+		.portrait {
+			order: -1;
+			justify-self: start;
+			max-width: 240px;
+		}
+
+		main section {
+			grid-template-columns: 1fr;
+			gap: 1.5rem;
+			padding: 3rem 0;
+		}
+	}
+</style>
