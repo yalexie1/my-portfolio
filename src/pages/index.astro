@@ -7,7 +7,6 @@ import { projects } from '../data/projects';
 const name = 'Yale Xie';
 const links = {
 	github: 'https://github.com/yalexie1',
-	// TODO: replace with your LinkedIn profile URL
 	linkedin: 'https://www.linkedin.com/in/yalexie',
 };
 ---
@@ -31,7 +30,6 @@ const links = {
 	<body>
 		<header class="hero">
 			<div class="hero-text">
-				<p class="eyebrow">CS + Math · Yale University · New Haven, CT</p>
 				<h1>
 					<span>Yale</span>
 					<em>Xie</em>
@@ -57,11 +55,20 @@ const links = {
 			<section class="about" aria-labelledby="about-heading">
 				<h2 id="about-heading" class="section-label">About</h2>
 				<div class="about-body">
-					<!-- TODO: replace with your own description -->
-					<p class="lede">A sentence or two about who you are and what you like to build goes here.</p>
+					<p class="lede">
+						Hello! I'm Yale Xie, and I'm a freshman studying Computer Science and Mathematics
+						at Yale College.
+					</p>
 					<p>
-						Use this space for a longer introduction — what you're studying, what you're
-						working on right now, and what kinds of problems you find interesting.
+						If you're wondering, I was not named after the school; rather, it's a phonetic
+						spelling of my Chinese name, which is pronounced like "yah-luh". On campus, I'm an
+						organizer for YHack and a member of the Yale College Council's Tech Division. I also
+						enjoy playing poker at the Yale Poker Club, competing in ping-pong intramurals, and
+						exploring Yale's vibrant music scene.
+					</p>
+					<p>
+						My technical background spans AI architectures, full-stack web development, and
+						statistical modeling.
 					</p>
 				</div>
 			</section>
@@ -150,15 +157,6 @@ const links = {
 		gap: 3rem;
 		padding: 6rem 0 4rem;
 		border-bottom: 1px solid var(--line);
-	}
-
-	.eyebrow {
-		margin: 0 0 1.5rem;
-		font-family: var(--font-mono);
-		font-size: 0.75rem;
-		text-transform: uppercase;
-		letter-spacing: 0.12em;
-		color: var(--moss);
 	}
 
 	h1 {
@@ -292,7 +290,6 @@ const links = {
 
 	/* ---------- Load animation ---------- */
 	@media (prefers-reduced-motion: no-preference) {
-		.eyebrow,
 		h1 span,
 		h1 em,
 		.hero .socials,
