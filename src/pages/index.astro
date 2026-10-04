@@ -127,18 +127,10 @@ const links = {
 
 		<script>
 			const header = document.querySelector('.site-header');
-			let lastY = window.scrollY;
+			const update = () => header?.classList.toggle('is-hidden', window.scrollY > 80);
 
-			window.addEventListener(
-				'scroll',
-				() => {
-					const y = window.scrollY;
-					const scrollingDown = y > lastY;
-					header?.classList.toggle('is-hidden', scrollingDown && y > 80);
-					lastY = y;
-				},
-				{ passive: true },
-			);
+			update();
+			window.addEventListener('scroll', update, { passive: true });
 		</script>
 	</body>
 </html>
@@ -219,7 +211,7 @@ const links = {
 			transform 0.35s ease;
 	}
 
-	/* Fades out while scrolling down; comes back on scroll up or keyboard focus */
+	/* Fades out once you scroll down; comes back near the top or on keyboard focus */
 	.site-header.is-hidden:not(:focus-within) {
 		opacity: 0;
 		transform: translateY(-100%);
