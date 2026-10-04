@@ -3,8 +3,11 @@ export interface Experience {
 	company: string;
 	location: string;
 	dates: string;
-	highlights: string[];
+	highlights: Highlight[];
 }
+
+// A highlight is plain text, or text with one phrase linked
+type Highlight = string | { text: string; link: { text: string; href: string } };
 
 // From YaleXie_Resume.pdf, most recent first
 export const experience: Experience[] = [
@@ -26,7 +29,13 @@ export const experience: Experience[] = [
 		highlights: [
 			'Built and optimized a statistical model in Python with Bayesian Additive Regression Trees (BART) to assess the relative importance of the Fama-French factors in U.S. large-cap equity returns.',
 			'Achieved an R² of 0.87 versus 0.22 for the OLS baseline, demonstrating the model’s ability to capture nonlinear relationships and interactions among factors.',
-			'Authored a peer-reviewed research article published in the Pioneer Research Journal.',
+			{
+				text: 'Authored a peer-reviewed research article published in the Pioneer Research Journal.',
+				link: {
+					text: 'research article',
+					href: 'https://pioneeracademics.com/journal/journal-2025/',
+				},
+			},
 		],
 	},
 	{
