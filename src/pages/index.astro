@@ -8,6 +8,7 @@ const name = 'Yale Xie';
 const links = {
 	github: 'https://github.com/yalexie1',
 	linkedin: 'https://www.linkedin.com/in/yalexie',
+	resume: '/YaleXie_Resume.pdf',
 };
 ---
 
@@ -38,6 +39,7 @@ const links = {
 				<nav class="socials" aria-label="Social links">
 					<a href={links.github} target="_blank" rel="noopener noreferrer">GitHub ↗</a>
 					<a href={links.linkedin} target="_blank" rel="noopener noreferrer">LinkedIn ↗</a>
+					<a href={links.resume} target="_blank" rel="noopener noreferrer">Resume ↗</a>
 				</nav>
 			</div>
 			<figure class="portrait">
@@ -84,10 +86,6 @@ const links = {
 
 		<footer>
 			<p>© {new Date().getFullYear()} {name}</p>
-			<div class="socials">
-				<a href={links.github} target="_blank" rel="noopener noreferrer">GitHub</a>
-				<a href={links.linkedin} target="_blank" rel="noopener noreferrer">LinkedIn</a>
-			</div>
 		</footer>
 	</body>
 </html>
@@ -280,10 +278,7 @@ const links = {
 	/* ---------- Footer ---------- */
 	footer {
 		display: flex;
-		justify-content: space-between;
-		align-items: center;
-		flex-wrap: wrap;
-		gap: 1rem;
+		justify-content: center;
 		padding: 2.5rem 0 3rem;
 		font-family: var(--font-mono);
 		font-size: 0.8rem;
@@ -291,10 +286,6 @@ const links = {
 	}
 
 	footer p {
-		margin: 0;
-	}
-
-	footer .socials {
 		margin: 0;
 	}
 
