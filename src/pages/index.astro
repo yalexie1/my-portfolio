@@ -91,6 +91,22 @@ const links = {
 		<footer>
 			<p>© {new Date().getFullYear()} {name}</p>
 		</footer>
+
+		<script>
+			const header = document.querySelector('.site-header');
+			let lastY = window.scrollY;
+
+			window.addEventListener(
+				'scroll',
+				() => {
+					const y = window.scrollY;
+					const scrollingDown = y > lastY;
+					header?.classList.toggle('is-hidden', scrollingDown && y > 80);
+					lastY = y;
+				},
+				{ passive: true },
+			);
+		</script>
 	</body>
 </html>
 
@@ -165,6 +181,16 @@ const links = {
 		backdrop-filter: blur(8px);
 		-webkit-backdrop-filter: blur(8px);
 		border-bottom: 1px solid var(--line);
+		transition:
+			opacity 0.35s ease,
+			transform 0.35s ease;
+	}
+
+	/* Fades out while scrolling down; comes back on scroll up or keyboard focus */
+	.site-header.is-hidden:not(:focus-within) {
+		opacity: 0;
+		transform: translateY(-100%);
+		pointer-events: none;
 	}
 
 	.site-name {
