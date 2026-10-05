@@ -1,5 +1,5 @@
 ---
-// Decorative page background: drifting canopy light, film grain, and fireflies.
+// Decorative page background: drifting canopy light, film grain, and floating math and code symbols.
 // Everything here is aria-hidden and sits behind the page content.
 ---
 
@@ -7,48 +7,69 @@
 	<div class="glow glow-1"></div>
 	<div class="glow glow-2"></div>
 	<div class="glow glow-3"></div>
-	<canvas class="fireflies"></canvas>
+	<canvas class="symbols"></canvas>
 	<div class="grain"></div>
 </div>
 
 <script>
-	const canvas = document.querySelector<HTMLCanvasElement>('.fireflies');
+	const canvas = document.querySelector<HTMLCanvasElement>('.symbols');
 	const ctx = canvas?.getContext('2d');
 	const reducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)');
 
 	if (canvas && ctx && !reducedMotion.matches) {
-		interface Firefly {
+		// Math symbols are set in the display serif's italic, code symbols in the mono
+		const MATH = ['π', '∑', '∫', '√', '∞', 'Δ', 'σ', 'λ', 'θ', '∂', '±', '×', '÷', '≈', '+', '*', 'e', 'ƒ(x)'];
+		const CODE = ['</>', '==', ';', '{ }', '=>', '&&', '||', '!=', '++', '//', '[ ]', '0x', '->', '#', '( )', '$'];
+
+		interface Glyph {
 			x: number;
 			y: number;
 			vx: number;
 			vy: number;
-			radius: number;
+			text: string;
+			font: string;
+			angle: number;
+			spin: number;
 			phase: number;
 			speed: number;
 		}
 
 		const pointer = { x: -9999, y: -9999 };
-		let fireflies: Firefly[] = [];
+		let glyphs: Glyph[] = [];
+		let fonts = { display: 'serif', mono: 'monospace' };
 		let width = 0;
 		let height = 0;
 		let color = '156, 191, 110';
 		let frame = 0;
 
-		const readColor = () => {
-			// Use the theme's warm accent so fireflies match light and dark mode
-			const value = getComputedStyle(document.documentElement).getPropertyValue('--firefly').trim();
+		const readTheme = () => {
+			// Use the theme's warm accent so the symbols match light and dark mode
+			const root = getComputedStyle(document.documentElement);
+			const value = root.getPropertyValue('--firefly').trim();
 			if (value) color = value;
+			fonts = {
+				display: root.getPropertyValue('--font-display').trim() || 'serif',
+				mono: root.getPropertyValue('--font-mono').trim() || 'monospace',
+			};
 		};
 
-		const spawn = (): Firefly => ({
-			x: Math.random() * width,
-			y: Math.random() * height,
-			vx: (Math.random() - 0.5) * 0.25,
-			vy: -0.1 - Math.random() * 0.25,
-			radius: 1 + Math.random() * 1.8,
-			phase: Math.random() * Math.PI * 2,
-			speed: 0.008 + Math.random() * 0.018,
-		});
+		const spawn = (): Glyph => {
+			const isMath = Math.random() < 0.5;
+			const pool = isMath ? MATH : CODE;
+			const size = Math.round(15 + Math.random() * 13);
+			return {
+				x: Math.random() * width,
+				y: Math.random() * height,
+				vx: (Math.random() - 0.5) * 0.25,
+				vy: -0.1 - Math.random() * 0.25,
+				text: pool[Math.floor(Math.random() * pool.length)],
+				font: isMath ? `italic 500 ${size}px ${fonts.display}` : `500 ${size}px ${fonts.mono}`,
+				angle: (Math.random() - 0.5) * 0.6,
+				spin: (Math.random() - 0.5) * 0.004,
+				phase: Math.random() * Math.PI * 2,
+				speed: 0.008 + Math.random() * 0.018,
+			};
+		};
 
 		const resize = () => {
 			const dpr = Math.min(window.devicePixelRatio || 1, 2);
@@ -58,13 +79,16 @@
 			canvas.height = height * dpr;
 			ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
 			const count = Math.round(Math.min(45, (width * height) / 34000));
-			fireflies = Array.from({ length: count }, spawn);
+			glyphs = Array.from({ length: count }, spawn);
 		};
 
 		const tick = () => {
 			ctx.clearRect(0, 0, width, height);
+			// Set every frame: resizing the canvas resets the context state
+			ctx.textAlign = 'center';
+			ctx.textBaseline = 'middle';
 
-			for (const f of fireflies) {
+			for (const f of glyphs) {
 				f.phase += f.speed;
 
 				// Gentle wander, plus a soft push away from the cursor
@@ -90,23 +114,30 @@
 				if (f.x < -20) f.x = width + 20;
 				if (f.x > width + 20) f.x = -20;
 
-				const flicker = 0.35 + 0.65 * Math.pow((Math.sin(f.phase) + 1) / 2, 2);
-				const glow = f.radius * 7;
-				const gradient = ctx.createRadialGradient(f.x, f.y, 0, f.x, f.y, glow);
-				gradient.addColorStop(0, `rgba(${color}, ${0.9 * flicker})`);
-				gradient.addColorStop(0.15, `rgba(${color}, ${0.45 * flicker})`);
-				gradient.addColorStop(1, `rgba(${color}, 0)`);
-				ctx.fillStyle = gradient;
-				ctx.beginPath();
-				ctx.arc(f.x, f.y, glow, 0, Math.PI * 2);
-				ctx.fill();
+				// Slow tumble and a gentle fade in and out
+				f.angle += f.spin;
+				const flicker = 0.4 + 0.6 * Math.pow((Math.sin(f.phase) + 1) / 2, 2);
+				ctx.save();
+				ctx.translate(f.x, f.y);
+				ctx.rotate(f.angle);
+				ctx.font = f.font;
+				ctx.fillStyle = `rgba(${color}, ${0.5 * flicker})`;
+				ctx.shadowColor = `rgba(${color}, ${0.6 * flicker})`;
+				ctx.shadowBlur = 8;
+				ctx.fillText(f.text, 0, 0);
+				ctx.restore();
 			}
 
 			frame = requestAnimationFrame(tick);
 		};
 
-		readColor();
+		readTheme();
 		resize();
+		// Rebuild once the web fonts arrive so the symbols use them rather than the fallbacks
+		document.fonts?.ready.then(() => {
+			readTheme();
+			resize();
+		});
 		frame = requestAnimationFrame(tick);
 
 		window.addEventListener('resize', resize);
@@ -121,7 +152,7 @@
 		document.addEventListener('pointerleave', () => {
 			pointer.x = pointer.y = -9999;
 		});
-		window.matchMedia('(prefers-color-scheme: dark)').addEventListener('change', readColor);
+		window.matchMedia('(prefers-color-scheme: dark)').addEventListener('change', readTheme);
 
 		// Pause when the tab isn't visible
 		document.addEventListener('visibilitychange', () => {
@@ -194,7 +225,7 @@
 		}
 	}
 
-	.fireflies {
+	.symbols {
 		position: absolute;
 		inset: 0;
 		width: 100%;
