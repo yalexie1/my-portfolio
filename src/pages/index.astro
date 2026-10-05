@@ -198,8 +198,8 @@ const contact = {
 				setTimeout(type, 2600);
 			}
 
-			// Reveal timeline entries and project cards as they scroll into view
-			const reveal = document.querySelectorAll<HTMLElement>('.job, .card');
+			// Reveal section headings, timeline entries, and project cards as they scroll into view
+			const reveal = document.querySelectorAll<HTMLElement>('.section-label, .job, .card');
 			const reducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
 
 			if (!reducedMotion && 'IntersectionObserver' in window) {
@@ -695,31 +695,37 @@ const contact = {
 		background-size: 100% 1px;
 	}
 
-	/* Section headings: a numbered serif title with a short moss rule underneath */
-	main {
-		counter-reset: section;
-	}
-
+	/* Section headings: serif titles in a slowly shifting moss-to-amber gradient,
+	   with a short rule underneath that grows in when the heading scrolls into view */
 	.section-label {
-		counter-increment: section;
 		margin: 0;
 		font-family: var(--font-display);
 		font-size: clamp(1.9rem, 3.5vw, 2.6rem);
 		font-weight: 500;
 		line-height: 1.1;
 		letter-spacing: -0.01em;
-		color: var(--ink);
+		color: var(--moss);
 	}
 
-	.section-label::before {
-		content: counter(section, decimal-leading-zero);
-		display: block;
-		margin-bottom: 0.6rem;
-		font-family: var(--font-mono);
-		font-size: 0.8rem;
-		font-weight: 500;
-		letter-spacing: 0.12em;
-		color: var(--moss);
+	@supports (background-clip: text) or (-webkit-background-clip: text) {
+		.section-label {
+			width: fit-content;
+			padding-right: 0.05em;
+			color: transparent;
+			background: linear-gradient(
+				100deg,
+				var(--ink) 0%,
+				var(--moss) 40%,
+				var(--amber) 60%,
+				var(--ink) 100%
+			);
+			background-size: 300% 100%;
+			background-position: 100% 0;
+			-webkit-background-clip: text;
+			background-clip: text;
+			/* A text-shadow would paint over the clipped gradient */
+			text-shadow: none;
+		}
 	}
 
 	.section-label::after {
@@ -728,7 +734,29 @@ const contact = {
 		width: 2.5rem;
 		height: 2px;
 		margin-top: 0.9rem;
-		background: var(--moss);
+		background: linear-gradient(90deg, var(--moss), var(--amber));
+	}
+
+	@media (prefers-reduced-motion: no-preference) {
+		.section-label {
+			animation: shimmer 7s ease-in-out infinite alternate;
+		}
+
+		.section-label.revealed {
+			animation:
+				reveal 0.9s cubic-bezier(0.2, 0.7, 0.2, 1) backwards,
+				shimmer 7s ease-in-out infinite alternate;
+		}
+
+		.section-label.revealed::after {
+			animation: grow-rule 0.8s cubic-bezier(0.6, 0, 0.2, 1) 0.3s backwards;
+		}
+	}
+
+	@keyframes grow-rule {
+		from {
+			width: 0;
+		}
 	}
 
 	.about-body {
