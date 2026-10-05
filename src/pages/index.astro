@@ -115,26 +115,28 @@ const contact = {
 						{
 							experience.map((job) => (
 								<li class="job">
-									<p class="job-dates">{job.dates}</p>
-									<h3>{job.role}</h3>
-									<p class="job-company">
-										{job.company} · {job.location}
-									</p>
-									<ul>
-										{job.highlights.map((highlight) => {
-											if (typeof highlight === 'string') return <li>{highlight}</li>;
-											const [before, after] = highlight.text.split(highlight.link.text);
-											return (
-												<li>
-													{before}
-													<a href={highlight.link.href} target="_blank" rel="noopener noreferrer">
-														{highlight.link.text}
-													</a>
-													{after}
-												</li>
-											);
-										})}
-									</ul>
+									<div class="job-card">
+										<p class="job-dates">{job.dates}</p>
+										<h3>{job.role}</h3>
+										<p class="job-company">
+											{job.company} · {job.location}
+										</p>
+										<ul>
+											{job.highlights.map((highlight) => {
+												if (typeof highlight === 'string') return <li>{highlight}</li>;
+												const [before, after] = highlight.text.split(highlight.link.text);
+												return (
+													<li>
+														{before}
+														<a href={highlight.link.href} target="_blank" rel="noopener noreferrer">
+															{highlight.link.text}
+														</a>
+														{after}
+													</li>
+												);
+											})}
+										</ul>
+									</div>
 								</li>
 							))
 						}
@@ -626,10 +628,11 @@ const contact = {
 		grid-auto-flow: column;
 		grid-auto-columns: calc((100% - 2 * var(--timeline-gap)) / 3);
 		gap: var(--timeline-gap);
-		/* Room for the node and its glow, which poke past the rail; the negative margin keeps alignment */
-		margin: 0 -8px;
-		padding: 8px 8px 0;
-		scroll-padding-inline: 8px;
+		/* Room for the node's glow and the boxes' shadows, which the scroll container would clip;
+		   the negative margin keeps everything aligned with the rest of the page */
+		margin: 0 -14px -1.5rem;
+		padding: 14px 14px 1.5rem;
+		scroll-padding-inline: 14px;
 		list-style: none;
 		overflow-x: auto;
 		overscroll-behavior-x: contain;
@@ -648,8 +651,43 @@ const contact = {
 
 	.job {
 		position: relative;
-		padding-top: 2rem;
+		display: flex;
+		padding-top: 1.75rem;
 		scroll-snap-align: start;
+	}
+
+	/* Each role sits in a box hung from its node on the rail, matching the project cards */
+	.job-card {
+		position: relative;
+		flex: 1;
+		padding: 1.5rem;
+		background: color-mix(in srgb, var(--surface) 86%, transparent);
+		border: 1px solid var(--line);
+		border-radius: 10px;
+		box-shadow:
+			inset 0 1px 0 color-mix(in srgb, var(--ink) 8%, transparent),
+			0 1px 2px rgb(0 0 0 / 0.12),
+			0 8px 24px -12px rgb(0 0 0 / 0.35);
+		transition:
+			border-color 0.3s ease,
+			box-shadow 0.3s ease;
+	}
+
+	/* Stem from the node down to the box */
+	.job-card::before {
+		content: '';
+		position: absolute;
+		bottom: 100%;
+		left: calc(1.5rem + 5px);
+		height: calc(1.75rem - 6px);
+		border-left: 1px dashed color-mix(in srgb, var(--moss) 55%, transparent);
+	}
+
+	.job-card:hover {
+		border-color: color-mix(in srgb, var(--moss) 45%, var(--line));
+		box-shadow:
+			inset 0 1px 0 color-mix(in srgb, var(--ink) 12%, transparent),
+			0 12px 28px -14px rgb(0 0 0 / 0.5);
 	}
 
 	/* Timeline rail, extended across the gap so it reads as one continuous line */
@@ -672,7 +710,8 @@ const contact = {
 		position: absolute;
 		z-index: 1;
 		top: -6px;
-		left: 0;
+		/* Lined up with the start of the box's text */
+		left: 1.5rem;
 		width: 11px;
 		height: 11px;
 		border: 1px solid var(--moss);
