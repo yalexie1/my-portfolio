@@ -123,19 +123,41 @@
 				const offset = (k / STRANDS) * Math.PI * 2;
 				let front = '';
 				let back = '';
-				let wasFront: boolean | null = null;
-				let prev = '';
+				let px = 0;
+				let py = 0;
+				let pc = 0;
 				for (let i = first; i <= last; i++) {
 					const s = samples[i];
 					const angle = (s.at / TWIST) * Math.PI * 2 + offset - spin;
 					const shift = Math.sin(angle) * RADIUS;
-					const point = `${(s.x + s.nx * shift).toFixed(1)} ${(s.y + s.ny * shift).toFixed(1)}`;
-					const isFront = Math.cos(angle) >= 0;
-					// Start a new piece whenever the strand passes over or under the route
-					if (isFront) front += wasFront ? ` L${point}` : ` M${prev || point} L${point}`;
-					else back += wasFront === false ? ` L${point}` : ` M${prev || point} L${point}`;
-					wasFront = isFront;
-					prev = point;
+					const x = s.x + s.nx * shift;
+					const y = s.y + s.ny * shift;
+					// Depth: positive in front of the route, negative behind it
+					const c = Math.cos(angle);
+					const point = ` L${x.toFixed(2)} ${y.toFixed(2)}`;
+					if (i === first) {
+						const start = ` M${x.toFixed(2)} ${y.toFixed(2)}`;
+						if (c >= 0) front += start;
+						else back += start;
+					} else if (c >= 0 === pc >= 0) {
+						if (c >= 0) front += point;
+						else back += point;
+					} else {
+						// The strand passes over or under between these samples: find
+						// exactly where, so the switch glides rather than jumping a sample
+						const t = pc / (pc - c);
+						const cross = `${(px + (x - px) * t).toFixed(2)} ${(py + (y - py) * t).toFixed(2)}`;
+						if (c >= 0) {
+							back += ` L${cross}`;
+							front += ` M${cross}${point}`;
+						} else {
+							front += ` L${cross}`;
+							back += ` M${cross}${point}`;
+						}
+					}
+					px = x;
+					py = y;
+					pc = c;
 				}
 				fronts[k].setAttribute('d', front || 'M0 0');
 				backs[k].setAttribute('d', back || 'M0 0');
@@ -216,12 +238,14 @@
 
 	/* The part you've already travelled: strands twisting over and under */
 	.strands-front :global(path) {
+		stroke-linecap: butt;
 		stroke: var(--moss);
 		stroke-width: 2.5;
 		opacity: var(--path-opacity);
 	}
 
 	.strands-back :global(path) {
+		stroke-linecap: butt;
 		stroke: var(--moss);
 		stroke-width: 1.5;
 		opacity: calc(var(--path-opacity) * 0.45);

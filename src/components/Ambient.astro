@@ -40,6 +40,7 @@
 		let height = 0;
 		let color = '156, 191, 110';
 		let frame = 0;
+		let last = 0;
 		let dpr = 1;
 
 		const readTheme = () => {
@@ -106,26 +107,32 @@
 			glyphs = Array.from({ length: count }, spawn);
 		};
 
-		const tick = () => {
+		const tick = (now: number) => {
+			// Step by real elapsed time (in 60fps frames) so motion stays even on
+			// 120Hz screens and doesn't lurch when a frame runs late
+			const dt = last ? Math.min(3, (now - last) / (1000 / 60)) : 1;
+			last = now;
+			const drag = Math.pow(0.97, dt);
 			ctx.clearRect(0, 0, width, height);
 
 			for (const f of glyphs) {
-				f.phase += f.speed;
+				f.phase += f.speed * dt;
 
 				// Gentle wander, plus a soft push away from the cursor
-				f.vx += Math.sin(f.phase * 0.7) * 0.004;
+				f.vx += Math.sin(f.phase * 0.7) * 0.004 * dt;
 				const dx = f.x - pointer.x;
 				const dy = f.y - pointer.y;
 				const dist = Math.hypot(dx, dy);
 				if (dist < 140 && dist > 0) {
 					const force = (140 - dist) / 140;
-					f.vx += (dx / dist) * force * 0.25;
-					f.vy += (dy / dist) * force * 0.25;
+					f.vx += (dx / dist) * force * 0.25 * dt;
+					f.vy += (dy / dist) * force * 0.25 * dt;
 				}
-				f.vx *= 0.97;
-				f.vy = f.vy * 0.97 + (-0.18 - f.vy) * 0.03;
-				f.x += f.vx;
-				f.y += f.vy;
+				// Ease back toward a slow upward drift
+				f.vx *= drag;
+				f.vy = -0.09 + (f.vy + 0.09) * Math.pow(0.94, dt);
+				f.x += f.vx * dt;
+				f.y += f.vy * dt;
 
 				// Wrap around the edges
 				if (f.y < -20) {
@@ -136,7 +143,7 @@
 				if (f.x > width + 20) f.x = -20;
 
 				// Slow tumble and a gentle fade in and out
-				f.angle += f.spin;
+				f.angle += f.spin * dt;
 				const flicker = 0.55 + 0.45 * Math.pow((Math.sin(f.phase) + 1) / 2, 2);
 				ctx.save();
 				ctx.translate(f.x, f.y);
@@ -181,6 +188,7 @@
 		// Pause when the tab isn't visible
 		document.addEventListener('visibilitychange', () => {
 			cancelAnimationFrame(frame);
+			last = 0;
 			if (!document.hidden) frame = requestAnimationFrame(tick);
 		});
 	}
