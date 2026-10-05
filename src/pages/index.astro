@@ -107,41 +107,39 @@ const contact = {
 			</section>
 
 			<section class="experience" aria-labelledby="experience-heading">
-				<div class="experience-header">
-					<h2 id="experience-heading" class="section-label">Experience</h2>
-					<div class="timeline-nav">
-						<button type="button" class="timeline-arrow" data-dir="-1" aria-label="Previous roles" aria-controls="timeline">←</button>
-						<button type="button" class="timeline-arrow" data-dir="1" aria-label="Next roles" aria-controls="timeline">→</button>
-					</div>
+				<h2 id="experience-heading" class="section-label">Experience</h2>
+				<div class="timeline-wrap">
+					<button type="button" class="timeline-arrow prev" data-dir="-1" aria-label="Previous roles" aria-controls="timeline">←</button>
+					<button type="button" class="timeline-arrow next" data-dir="1" aria-label="Next roles" aria-controls="timeline">→</button>
+					<ol class="timeline" id="timeline" tabindex="0" aria-label="Roles, newest first">
+						{
+							experience.map((job) => (
+								<li class="job">
+									<p class="job-dates">{job.dates}</p>
+									<h3>{job.role}</h3>
+									<p class="job-company">
+										{job.company} · {job.location}
+									</p>
+									<ul>
+										{job.highlights.map((highlight) => {
+											if (typeof highlight === 'string') return <li>{highlight}</li>;
+											const [before, after] = highlight.text.split(highlight.link.text);
+											return (
+												<li>
+													{before}
+													<a href={highlight.link.href} target="_blank" rel="noopener noreferrer">
+														{highlight.link.text}
+													</a>
+													{after}
+												</li>
+											);
+										})}
+									</ul>
+								</li>
+							))
+						}
+					</ol>
 				</div>
-				<ol class="timeline" id="timeline" tabindex="0" aria-label="Roles, newest first">
-					{
-						experience.map((job) => (
-							<li class="job">
-								<p class="job-dates">{job.dates}</p>
-								<h3>{job.role}</h3>
-								<p class="job-company">
-									{job.company} · {job.location}
-								</p>
-								<ul>
-									{job.highlights.map((highlight) => {
-										if (typeof highlight === 'string') return <li>{highlight}</li>;
-										const [before, after] = highlight.text.split(highlight.link.text);
-										return (
-											<li>
-												{before}
-												<a href={highlight.link.href} target="_blank" rel="noopener noreferrer">
-													{highlight.link.text}
-												</a>
-												{after}
-											</li>
-										);
-									})}
-								</ul>
-							</li>
-						))
-					}
-				</ol>
 			</section>
 
 			<section class="contact" aria-labelledby="contact-heading">
@@ -558,19 +556,16 @@ const contact = {
 		grid-template-columns: 1fr;
 	}
 
-	.experience-header {
-		display: flex;
-		align-items: flex-end;
-		justify-content: space-between;
-		gap: 1rem;
-	}
-
-	.timeline-nav {
-		display: flex;
-		gap: 0.5rem;
+	/* Arrows sit in the gutters either side of the roles, centred on them */
+	.timeline-wrap {
+		position: relative;
 	}
 
 	.timeline-arrow {
+		position: absolute;
+		z-index: 2;
+		top: 50%;
+		translate: 0 -50%;
 		display: grid;
 		place-items: center;
 		width: 2.5rem;
@@ -579,14 +574,34 @@ const contact = {
 		font-family: var(--font-mono);
 		font-size: 1rem;
 		color: var(--ink);
-		background: color-mix(in srgb, var(--surface) 70%, transparent);
+		background: var(--surface);
 		border: 1px solid var(--line);
 		border-radius: 50%;
+		box-shadow: 0 4px 14px -6px rgb(0 0 0 / 0.4);
 		cursor: pointer;
 		transition:
 			color 0.2s ease,
 			border-color 0.2s ease,
 			opacity 0.2s ease;
+	}
+
+	.timeline-arrow.prev {
+		left: -4rem;
+	}
+
+	.timeline-arrow.next {
+		right: -4rem;
+	}
+
+	/* Without room in the gutters, straddle the page padding instead */
+	@media (max-width: 1240px) {
+		.timeline-arrow.prev {
+			left: -1.25rem;
+		}
+
+		.timeline-arrow.next {
+			right: -1.25rem;
+		}
 	}
 
 	.timeline-arrow:hover:not(:disabled) {
