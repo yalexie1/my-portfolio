@@ -27,6 +27,8 @@
 			vx: number;
 			vy: number;
 			sprite: HTMLCanvasElement;
+			// Collision radius, roughly the symbol's half-width
+			r: number;
 			angle: number;
 			spin: number;
 			phase: number;
@@ -60,7 +62,8 @@
 			const pad = 14;
 			const measure = document.createElement('canvas').getContext('2d')!;
 			measure.font = font;
-			const w = Math.ceil(measure.measureText(text).width) + pad * 2;
+			const textWidth = measure.measureText(text).width;
+			const w = Math.ceil(textWidth) + pad * 2;
 			const h = Math.ceil(size * 1.4) + pad * 2;
 			const sprite = document.createElement('canvas');
 			sprite.width = w * dpr;
@@ -74,7 +77,7 @@
 			g.shadowColor = `rgba(${color}, 0.8)`;
 			g.shadowBlur = 12;
 			g.fillText(text, w / 2, h / 2);
-			return sprite;
+			return { sprite, r: Math.max(textWidth, size * 0.8) / 2 + 4 };
 		};
 
 		const spawn = (): Glyph => {
@@ -83,12 +86,22 @@
 			const size = Math.round(22 + Math.random() * 18);
 			const text = pool[Math.floor(Math.random() * pool.length)];
 			const font = isMath ? `italic 500 ${size}px ${fonts.display}` : `500 ${size}px ${fonts.mono}`;
+			const { sprite, r } = render(text, font, size);
+			// Try a few spots so symbols don't start out on top of each other
+			let x = 0;
+			let y = 0;
+			for (let attempt = 0; attempt < 30; attempt++) {
+				x = Math.random() * width;
+				y = Math.random() * height;
+				if (glyphs.every((o) => Math.hypot(o.x - x, o.y - y) > o.r + r)) break;
+			}
 			return {
-				x: Math.random() * width,
-				y: Math.random() * height,
+				x,
+				y,
 				vx: (Math.random() - 0.5) * 0.35,
 				vy: -0.15 - Math.random() * 0.35,
-				sprite: render(text, font, size),
+				sprite,
+				r,
 				angle: (Math.random() - 0.5) * 0.6,
 				spin: (Math.random() - 0.5) * 0.006,
 				phase: Math.random() * Math.PI * 2,
@@ -104,7 +117,8 @@
 			canvas.height = height * dpr;
 			ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
 			const count = Math.round(Math.min(45, (width * height) / 30000));
-			glyphs = Array.from({ length: count }, spawn);
+			glyphs = [];
+			for (let i = 0; i < count; i++) glyphs.push(spawn());
 		};
 
 		const tick = (now: number) => {
@@ -142,8 +156,41 @@
 				if (f.x < -20) f.x = width + 20;
 				if (f.x > width + 20) f.x = -20;
 
-				// Slow tumble and a gentle fade in and out
 				f.angle += f.spin * dt;
+			}
+
+			// Bounce symbols off each other instead of letting them overlap
+			for (let i = 0; i < glyphs.length; i++) {
+				const a = glyphs[i];
+				for (let j = i + 1; j < glyphs.length; j++) {
+					const b = glyphs[j];
+					const dx = b.x - a.x;
+					const dy = b.y - a.y;
+					const min = a.r + b.r;
+					if (Math.abs(dx) >= min || Math.abs(dy) >= min) continue;
+					const dist = Math.hypot(dx, dy);
+					if (dist >= min) continue;
+					const nx = dist > 0 ? dx / dist : 1;
+					const ny = dist > 0 ? dy / dist : 0;
+					// Push them apart so they just touch
+					const overlap = (min - dist) / 2;
+					a.x -= nx * overlap;
+					a.y -= ny * overlap;
+					b.x += nx * overlap;
+					b.y += ny * overlap;
+					// If they're closing in, swap their speeds along the line between them
+					const closing = (a.vx - b.vx) * nx + (a.vy - b.vy) * ny;
+					if (closing > 0) {
+						a.vx -= closing * nx;
+						a.vy -= closing * ny;
+						b.vx += closing * nx;
+						b.vy += closing * ny;
+					}
+				}
+			}
+
+			for (const f of glyphs) {
+				// Gentle fade in and out as each symbol tumbles
 				const flicker = 0.55 + 0.45 * Math.pow((Math.sin(f.phase) + 1) / 2, 2);
 				ctx.save();
 				ctx.translate(f.x, f.y);
