@@ -241,6 +241,7 @@ const contact = {
 		--grain-opacity: 0.07;
 		--path-opacity: 0.4;
 		--yale-blue: #00356b;
+		--yale-blue-bright: #286dc0;
 		--path-ahead-opacity: 0.22;
 		--font-display: 'Fraunces', Georgia, serif;
 		--font-body: 'Instrument Sans', system-ui, sans-serif;
@@ -263,6 +264,7 @@ const contact = {
 			--path-opacity: 0.45;
 			/* Yale's secondary blue: official Yale Blue is too dark to read on this background */
 			--yale-blue: #286dc0;
+			--yale-blue-bright: #63aaff;
 			--path-ahead-opacity: 0.25;
 		}
 	}
@@ -782,6 +784,41 @@ const contact = {
 	.yale-blue {
 		color: var(--yale-blue);
 		font-weight: 500;
+	}
+
+	/* A band of brighter blue sweeps through the words, with an underline that glides along */
+	@supports (background-clip: text) or (-webkit-background-clip: text) {
+		.yale-blue {
+			--sweep: linear-gradient(
+				100deg,
+				var(--yale-blue) 30%,
+				var(--yale-blue-bright) 50%,
+				var(--yale-blue) 70%
+			);
+			color: transparent;
+			background:
+				var(--sweep) 100% 0 / 300% 100%,
+				var(--sweep) 100% 100% / 300% 2px no-repeat;
+			padding-bottom: 0.08em;
+			-webkit-background-clip: text, border-box;
+			background-clip: text, border-box;
+			/* A text-shadow would paint over the clipped gradient */
+			text-shadow: none;
+		}
+
+		@media (prefers-reduced-motion: no-preference) {
+			.yale-blue {
+				animation: yale-sweep 3.5s ease-in-out infinite;
+			}
+		}
+	}
+
+	@keyframes yale-sweep {
+		to {
+			background-position:
+				0% 0,
+				0% 100%;
+		}
 	}
 
 	/* Two columns so four projects form an even 2×2 grid; one column on phones */
