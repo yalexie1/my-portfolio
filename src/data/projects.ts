@@ -21,4 +21,16 @@ export const projects: Project[] = [
 		repo: 'https://github.com/yalexie1/edgar-intelligence',
 		live: 'https://edgar-intelligence.vercel.app',
 	},
+	{
+		title: 'Volatility Surface Modeling',
+		description:
+			'An interactive volatility surface for SPY options using SVI parametrization and least squares optimization.',
+		repo: 'https://github.com/yalexie1/volatility-surface-modeling',
+	},
+	{
+		title: 'Markowitz Efficient Frontier Modeling',
+		description:
+			'A Monte Carlo simulation and SciPy optimization of the Markowitz Efficient Frontier on a portfolio of 10 relatively uncorrelated stocks.',
+		repo: 'https://github.com/yalexie1/markowitz-efficient-frontier-modeling',
+	},
 ];

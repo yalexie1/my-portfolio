@@ -8,18 +8,16 @@ interface Props {
 
 const { project, index } = Astro.props;
 const number = String(index + 1).padStart(2, '0');
+// Clicking the card opens the live site, or the repo when there isn't one
+const cardHref = project.live ?? project.repo;
 ---
 
-<article class:list={['card', { clickable: project.live }]}>
+<article class="card clickable">
 	<span class="number" aria-hidden="true">{number}</span>
 	<h3>
-		{project.live ? (
-			<a class="card-link" href={project.live} target="_blank" rel="noopener noreferrer">
-				{project.title}
-			</a>
-		) : (
-			project.title
-		)}
+		<a class="card-link" href={cardHref} target="_blank" rel="noopener noreferrer">
+			{project.title}
+		</a>
 	</h3>
 	<p>{project.description}</p>
 	<div class="links">

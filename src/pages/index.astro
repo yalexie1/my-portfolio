@@ -776,9 +776,10 @@ const contact = {
 		color: var(--ink);
 	}
 
+	/* Two columns so four projects form an even 2×2 grid; one column on phones */
 	.grid {
 		display: grid;
-		grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+		grid-template-columns: repeat(2, 1fr);
 		gap: 1.75rem;
 	}
 
@@ -865,6 +866,10 @@ const contact = {
 			grid-template-columns: 1fr;
 			gap: 1.5rem;
 			padding: 3rem 0;
+		}
+
+		.grid {
+			grid-template-columns: 1fr;
 		}
 
 		/* Keep the timeline horizontal on small screens: swipe through roles */
