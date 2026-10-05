@@ -85,7 +85,7 @@
 			ahead.setAttribute('d', d);
 
 			const length = ahead.getTotalLength();
-			const count = Math.ceil(length / 6);
+			const count = Math.ceil(length / 4);
 			const route = Array.from({ length: count + 1 }, (_, i) => {
 				const at = (length * i) / count;
 				const p = ahead.getPointAtLength(at);
@@ -101,16 +101,31 @@
 			update();
 		};
 
-		// Redraw the strands up to the tip, twisted by the current spin
+		// Index of the first sample at or below a given height (the route only moves downward)
+		const findY = (y: number) => {
+			let lo = 0;
+			let hi = samples.length - 1;
+			while (lo < hi) {
+				const mid = (lo + hi) >> 1;
+				if (samples[mid].y < y) lo = mid + 1;
+				else hi = mid;
+			}
+			return lo;
+		};
+
+		// Redraw the strands up to the tip, twisted by the current spin. Only the
+		// stretch on screen is drawn, which keeps each frame cheap on long pages
 		const draw = (time: number) => {
 			const spin = reducedMotion ? 0 : time * SPIN;
+			const first = Math.max(0, findY(window.scrollY - 100) - 1);
+			const last = Math.min(reached, findY(window.scrollY + window.innerHeight + 100));
 			for (let k = 0; k < STRANDS; k++) {
 				const offset = (k / STRANDS) * Math.PI * 2;
 				let front = '';
 				let back = '';
 				let wasFront: boolean | null = null;
 				let prev = '';
-				for (let i = 0; i <= reached; i++) {
+				for (let i = first; i <= last; i++) {
 					const s = samples[i];
 					const angle = (s.at / TWIST) * Math.PI * 2 + offset - spin;
 					const shift = Math.sin(angle) * RADIUS;
@@ -143,16 +158,8 @@
 				? Infinity
 				: window.scrollY + window.innerHeight * (0.55 + 0.45 * progress);
 
-			// The route only moves downward, so binary search by y
-			let lo = 0;
-			let hi = samples.length - 1;
-			while (lo < hi) {
-				const mid = (lo + hi) >> 1;
-				if (samples[mid].y < target) lo = mid + 1;
-				else hi = mid;
-			}
-			const point = samples[lo];
-			reached = lo;
+			reached = findY(target);
+			const point = samples[reached];
 			if (reducedMotion) draw(0);
 
 			for (const circle of [tip, halo]) {
@@ -196,6 +203,7 @@
 	:global(.scroll-path path) {
 		fill: none;
 		stroke-linecap: round;
+		stroke-linejoin: round;
 	}
 
 	/* Faint dotted preview of the route still to come */
