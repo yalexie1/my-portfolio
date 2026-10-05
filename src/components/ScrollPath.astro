@@ -7,8 +7,8 @@
 	<svg>
 		<path class="trail-ahead" />
 		<path class="trail" />
-		<circle class="tip-halo" r="14" />
-		<circle class="tip" r="3.5" />
+		<circle class="tip-halo" r="18" />
+		<circle class="tip" r="5" />
 	</svg>
 </div>
 
@@ -42,14 +42,16 @@
 			// Swing side to side every ~520px, reaching toward the page edges
 			const step = 520;
 			const margin = Math.max(24, width * 0.06);
+			// End a little above the bottom so the tip stays fully visible
+			const end = height - 32;
 			const points: [number, number][] = [[width * 0.5, 0]];
-			for (let i = 1, y = step; y < height + step; i++, y += step) {
+			for (let i = 1, y = step; points[points.length - 1][1] < end; i++, y += step) {
 				const side = i % 2 ? 1 : 0;
 				const reach = 0.55 + wobble(i) * 0.45;
 				const x = side
 					? width / 2 + (width / 2 - margin) * reach
 					: width / 2 - (width / 2 - margin) * reach;
-				points.push([x, Math.min(y, height)]);
+				points.push([x, Math.min(y, end)]);
 			}
 
 			let d = `M ${points[0][0]} ${points[0][1]}`;
@@ -80,10 +82,13 @@
 			pending = false;
 			if (!samples.length) return;
 
-			// The tip sits a bit below the middle of the screen
+			// The tip sits a bit below the middle of the screen, then slides down to
+			// the very end of the path as you reach the bottom of the page
+			const maxScroll = document.documentElement.scrollHeight - window.innerHeight;
+			const progress = maxScroll > 0 ? Math.min(1, window.scrollY / maxScroll) : 1;
 			const target = reducedMotion
 				? Infinity
-				: window.scrollY + window.innerHeight * 0.55;
+				: window.scrollY + window.innerHeight * (0.55 + 0.45 * progress);
 
 			// The path only moves downward, so binary search by y
 			let lo = 0;
@@ -140,15 +145,15 @@
 	/* Faint dotted preview of the route still to come */
 	.trail-ahead {
 		stroke: var(--moss);
-		stroke-width: 1;
-		stroke-dasharray: 2 10;
+		stroke-width: 2;
+		stroke-dasharray: 2 12;
 		opacity: var(--path-ahead-opacity);
 	}
 
 	/* The part you've already travelled */
 	.trail {
 		stroke: var(--moss);
-		stroke-width: 1.5;
+		stroke-width: 3;
 		opacity: var(--path-opacity);
 	}
 
