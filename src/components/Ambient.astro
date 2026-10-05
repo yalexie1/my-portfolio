@@ -126,7 +126,7 @@
 			// 120Hz screens and doesn't lurch when a frame runs late
 			const dt = last ? Math.min(3, (now - last) / (1000 / 60)) : 1;
 			last = now;
-			const drag = Math.pow(0.97, dt);
+			const drag = Math.pow(0.985, dt);
 			ctx.clearRect(0, 0, width, height);
 
 			for (const f of glyphs) {
@@ -144,7 +144,7 @@
 				}
 				// Ease back toward a slow upward drift
 				f.vx *= drag;
-				f.vy = -0.14 + (f.vy + 0.14) * Math.pow(0.94, dt);
+				f.vy = -0.14 + (f.vy + 0.14) * Math.pow(0.98, dt);
 				f.x += f.vx * dt;
 				f.y += f.vy * dt;
 
@@ -156,6 +156,8 @@
 				if (f.x < -20) f.x = width + 20;
 				if (f.x > width + 20) f.x = -20;
 
+				// Knocks add spin, so keep it from building into a whirl
+				f.spin = Math.max(-0.015, Math.min(0.015, f.spin));
 				f.angle += f.spin * dt;
 			}
 
@@ -178,13 +180,18 @@
 					a.y -= ny * overlap;
 					b.x += nx * overlap;
 					b.y += ny * overlap;
-					// If they're closing in, swap their speeds along the line between them
+					// If they're closing in, swap their speeds along the line between them,
+					// with a minimum kick so even gentle touches visibly rebound
 					const closing = (a.vx - b.vx) * nx + (a.vy - b.vy) * ny;
 					if (closing > 0) {
-						a.vx -= closing * nx;
-						a.vy -= closing * ny;
-						b.vx += closing * nx;
-						b.vy += closing * ny;
+						const kick = Math.max(closing, 1.4);
+						a.vx -= kick * nx;
+						a.vy -= kick * ny;
+						b.vx += kick * nx;
+						b.vy += kick * ny;
+						// A little extra spin from the knock
+						a.spin += (Math.random() - 0.5) * 0.01;
+						b.spin += (Math.random() - 0.5) * 0.01;
 					}
 				}
 			}
