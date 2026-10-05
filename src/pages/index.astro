@@ -786,7 +786,7 @@ const contact = {
 		font-weight: 500;
 	}
 
-	/* A band of brighter blue sweeps through the words, with an underline that glides along */
+	/* A band of brighter blue sweeps through the words */
 	@supports (background-clip: text) or (-webkit-background-clip: text) {
 		.yale-blue {
 			--sweep: linear-gradient(
@@ -796,12 +796,9 @@ const contact = {
 				var(--yale-blue) 70%
 			);
 			color: transparent;
-			background:
-				var(--sweep) 100% 0 / 300% 100%,
-				var(--sweep) 100% 100% / 300% 2px no-repeat;
-			padding-bottom: 0.08em;
-			-webkit-background-clip: text, border-box;
-			background-clip: text, border-box;
+			background: var(--sweep) 100% 0 / 300% 100%;
+			-webkit-background-clip: text;
+			background-clip: text;
 			/* A text-shadow would paint over the clipped gradient */
 			text-shadow: none;
 		}
@@ -815,9 +812,7 @@ const contact = {
 
 	@keyframes yale-sweep {
 		to {
-			background-position:
-				0% 0,
-				0% 100%;
+			background-position: 0% 0;
 		}
 	}
 
