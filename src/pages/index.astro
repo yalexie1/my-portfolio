@@ -2,6 +2,7 @@
 import { Image } from 'astro:assets';
 import Ambient from '../components/Ambient.astro';
 import ProjectCard from '../components/ProjectCard.astro';
+import ScrollPath from '../components/ScrollPath.astro';
 import profilePicture from '../assets/profile_picture.jpg';
 import { experience } from '../data/experience';
 import { projects } from '../data/projects';
@@ -32,6 +33,7 @@ const links = {
 	</head>
 	<body>
 		<Ambient />
+		<ScrollPath />
 
 		<header class="site-header">
 			<a class="site-name" href="/">{name}</a>
@@ -176,6 +178,8 @@ const links = {
 		--firefly: 176, 128, 20;
 		--glow-opacity: 0.2;
 		--grain-opacity: 0.07;
+		--path-opacity: 0.4;
+		--path-ahead-opacity: 0.22;
 		--font-display: 'Fraunces', Georgia, serif;
 		--font-body: 'Instrument Sans', system-ui, sans-serif;
 		--font-mono: 'JetBrains Mono', ui-monospace, monospace;
@@ -194,6 +198,8 @@ const links = {
 			--firefly: 214, 230, 120;
 			--glow-opacity: 0.16;
 			--grain-opacity: 0.05;
+			--path-opacity: 0.45;
+			--path-ahead-opacity: 0.25;
 		}
 	}
 
@@ -218,6 +224,15 @@ const links = {
 		padding: 0 1.5rem;
 		/* Transparent so the fixed ambient background shows through */
 		background: transparent;
+	}
+
+	/* Soft halo in the page colour keeps text crisp over the path and fireflies */
+	main,
+	.hero,
+	footer {
+		text-shadow:
+			0 0 2px var(--paper),
+			0 0 12px var(--paper);
 	}
 
 	::selection {
@@ -336,6 +351,8 @@ const links = {
 			background-position: 100% 0;
 			-webkit-background-clip: text;
 			background-clip: text;
+			/* A text-shadow would paint over the clipped gradient */
+			text-shadow: none;
 		}
 	}
 

@@ -1,0 +1,181 @@
+---
+// A winding trail behind the page that draws itself as you scroll,
+// with a glowing tip that keeps pace with the reader.
+---
+
+<div class="scroll-path" aria-hidden="true">
+	<svg>
+		<path class="trail-ahead" />
+		<path class="trail" />
+		<circle class="tip-halo" r="14" />
+		<circle class="tip" r="3.5" />
+	</svg>
+</div>
+
+<script>
+	const layer = document.querySelector<HTMLElement>('.scroll-path');
+	const svg = layer?.querySelector('svg');
+	const ahead = layer?.querySelector<SVGPathElement>('.trail-ahead');
+	const trail = layer?.querySelector<SVGPathElement>('.trail');
+	const tip = layer?.querySelector<SVGCircleElement>('.tip');
+	const halo = layer?.querySelector<SVGCircleElement>('.tip-halo');
+	const reducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+
+	if (layer && svg && ahead && trail && tip && halo) {
+		let length = 0;
+		// Samples of (distance along path, y) so we can find where the path crosses a given height
+		let samples: { at: number; x: number; y: number }[] = [];
+		let pending = false;
+
+		// Deterministic wobble so the path keeps its shape between visits
+		const wobble = (i: number) => {
+			const v = Math.sin(i * 12.9898) * 43758.5453;
+			return v - Math.floor(v);
+		};
+
+		const build = () => {
+			const width = document.documentElement.clientWidth;
+			const height = document.body.offsetHeight;
+			layer.style.height = `${height}px`;
+			svg.setAttribute('viewBox', `0 0 ${width} ${height}`);
+
+			// Swing side to side every ~520px, reaching toward the page edges
+			const step = 520;
+			const margin = Math.max(24, width * 0.06);
+			const points: [number, number][] = [[width * 0.5, 0]];
+			for (let i = 1, y = step; y < height + step; i++, y += step) {
+				const side = i % 2 ? 1 : 0;
+				const reach = 0.55 + wobble(i) * 0.45;
+				const x = side
+					? width / 2 + (width / 2 - margin) * reach
+					: width / 2 - (width / 2 - margin) * reach;
+				points.push([x, Math.min(y, height)]);
+			}
+
+			let d = `M ${points[0][0]} ${points[0][1]}`;
+			for (let i = 1; i < points.length; i++) {
+				const [x0, y0] = points[i - 1];
+				const [x1, y1] = points[i];
+				const bend = (y1 - y0) * 0.55;
+				d += ` C ${x0} ${y0 + bend}, ${x1} ${y1 - bend}, ${x1} ${y1}`;
+			}
+			ahead.setAttribute('d', d);
+			trail.setAttribute('d', d);
+
+			length = trail.getTotalLength();
+			trail.style.strokeDasharray = `${length}`;
+
+			samples = [];
+			const count = Math.ceil(length / 12);
+			for (let i = 0; i <= count; i++) {
+				const at = (length * i) / count;
+				const p = trail.getPointAtLength(at);
+				samples.push({ at, x: p.x, y: p.y });
+			}
+
+			update();
+		};
+
+		const update = () => {
+			pending = false;
+			if (!samples.length) return;
+
+			// The tip sits a bit below the middle of the screen
+			const target = reducedMotion
+				? Infinity
+				: window.scrollY + window.innerHeight * 0.55;
+
+			// The path only moves downward, so binary search by y
+			let lo = 0;
+			let hi = samples.length - 1;
+			while (lo < hi) {
+				const mid = (lo + hi) >> 1;
+				if (samples[mid].y < target) lo = mid + 1;
+				else hi = mid;
+			}
+			const point = samples[lo];
+
+			trail.style.strokeDashoffset = `${length - point.at}`;
+			for (const circle of [tip, halo]) {
+				circle.setAttribute('cx', `${point.x}`);
+				circle.setAttribute('cy', `${point.y}`);
+			}
+		};
+
+		const schedule = () => {
+			if (pending) return;
+			pending = true;
+			requestAnimationFrame(update);
+		};
+
+		build();
+		window.addEventListener('scroll', schedule, { passive: true });
+		// Rebuild when the page size changes (resize, fonts or images loading)
+		new ResizeObserver(build).observe(document.body);
+	}
+</script>
+
+<style>
+	.scroll-path {
+		position: absolute;
+		top: 0;
+		left: 0;
+		z-index: -1;
+		width: 100%;
+		pointer-events: none;
+	}
+
+	svg {
+		display: block;
+		width: 100%;
+		height: 100%;
+		overflow: visible;
+	}
+
+	path {
+		fill: none;
+		stroke-linecap: round;
+	}
+
+	/* Faint dotted preview of the route still to come */
+	.trail-ahead {
+		stroke: var(--moss);
+		stroke-width: 1;
+		stroke-dasharray: 2 10;
+		opacity: var(--path-ahead-opacity);
+	}
+
+	/* The part you've already travelled */
+	.trail {
+		stroke: var(--moss);
+		stroke-width: 1.5;
+		opacity: var(--path-opacity);
+	}
+
+	.tip {
+		fill: var(--moss);
+		opacity: 0.85;
+	}
+
+	.tip-halo {
+		fill: var(--moss);
+		opacity: 0.18;
+		transform-box: fill-box;
+		transform-origin: center;
+		animation: breathe 2.4s ease-in-out infinite;
+	}
+
+	@keyframes breathe {
+		50% {
+			transform: scale(1.6);
+			opacity: 0.06;
+		}
+	}
+
+	@media (prefers-reduced-motion: reduce) {
+		.tip,
+		.tip-halo {
+			display: none;
+		}
+	}
+</style>
