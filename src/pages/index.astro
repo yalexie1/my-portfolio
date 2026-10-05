@@ -13,6 +13,9 @@ const links = {
 	linkedin: 'https://www.linkedin.com/in/yalexie',
 	resume: '/YaleXie_Resume.pdf',
 };
+// Phrases the hero tagline types out, in order
+const taglinePhrases = ['campus tools', 'data pipelines', 'RAG applications', 'quant visualizations'];
+const taglineSentence = `I build ${new Intl.ListFormat('en', { type: 'conjunction' }).format(taglinePhrases)}.`;
 const contact = {
 	email: 'yale.xie@yale.edu',
 	phone: '(512) 354-0432',
@@ -51,9 +54,11 @@ const contact = {
 
 		<section class="hero">
 			<div class="hero-text">
-				<p class="tagline" aria-label="I build RAG apps, quant models, campus tools, and data pipelines.">
+				<p class="tagline" aria-label={taglineSentence}>
 					<span aria-hidden="true">
-						I build <span class="tagline-word">RAG apps</span><span class="tagline-caret"></span>
+						I build <span class="tagline-word" data-phrases={JSON.stringify(taglinePhrases)}
+							>{taglinePhrases[0]}</span
+						><span class="tagline-caret"></span>
 					</span>
 				</p>
 				<p class="eyebrow">Yale University · New Haven, CT</p>
@@ -166,9 +171,9 @@ const contact = {
 
 			// Type out and erase what I build, one phrase at a time
 			const word = document.querySelector<HTMLElement>('.tagline-word');
-			const phrases = ['RAG apps', 'quant models', 'campus tools', 'data pipelines'];
+			const phrases: string[] = JSON.parse(word?.dataset.phrases ?? '[]');
 
-			if (word && !window.matchMedia('(prefers-reduced-motion: reduce)').matches) {
+			if (word && phrases.length && !window.matchMedia('(prefers-reduced-motion: reduce)').matches) {
 				let phrase = 0;
 				let chars = phrases[0].length;
 				let deleting = true;
@@ -785,6 +790,11 @@ const contact = {
 
 		.socials {
 			gap: 1rem;
+		}
+
+		/* Keep the longest phrase on one line on phones */
+		.tagline {
+			font-size: 1.3rem;
 		}
 
 		.socials a {
