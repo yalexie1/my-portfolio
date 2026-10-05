@@ -12,6 +12,16 @@ type Highlight = string | { text: string; link: { text: string; href: string } }
 // From YaleXie_Resume.pdf, most recent first
 export const experience: Experience[] = [
 	{
+		role: 'Teaching Assistant',
+		company: 'Liberal Arts and Science Academy',
+		location: 'Austin, TX',
+		dates: 'Aug 2025 – May 2026',
+		highlights: [
+			'Provided technical feedback on methodologies and analyses to 30+ students in Bayesian data science projects.',
+			'Engineered supplementary code demonstrations to improve the rigor and clarity of instructional materials.',
+		],
+	},
+	{
 		role: 'Quantitative Research Intern',
 		company: 'The Cake Shop Capital',
 		location: 'Boston, MA',
