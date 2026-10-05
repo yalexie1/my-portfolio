@@ -1,0 +1,228 @@
+---
+// Decorative page background: drifting canopy light, film grain, and fireflies.
+// Everything here is aria-hidden and sits behind the page content.
+---
+
+<div class="ambient" aria-hidden="true">
+	<div class="glow glow-1"></div>
+	<div class="glow glow-2"></div>
+	<div class="glow glow-3"></div>
+	<canvas class="fireflies"></canvas>
+	<div class="grain"></div>
+</div>
+
+<script>
+	const canvas = document.querySelector<HTMLCanvasElement>('.fireflies');
+	const ctx = canvas?.getContext('2d');
+	const reducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)');
+
+	if (canvas && ctx && !reducedMotion.matches) {
+		interface Firefly {
+			x: number;
+			y: number;
+			vx: number;
+			vy: number;
+			radius: number;
+			phase: number;
+			speed: number;
+		}
+
+		const pointer = { x: -9999, y: -9999 };
+		let fireflies: Firefly[] = [];
+		let width = 0;
+		let height = 0;
+		let color = '156, 191, 110';
+		let frame = 0;
+
+		const readColor = () => {
+			// Use the theme's warm accent so fireflies match light and dark mode
+			const value = getComputedStyle(document.documentElement).getPropertyValue('--firefly').trim();
+			if (value) color = value;
+		};
+
+		const spawn = (): Firefly => ({
+			x: Math.random() * width,
+			y: Math.random() * height,
+			vx: (Math.random() - 0.5) * 0.25,
+			vy: -0.1 - Math.random() * 0.25,
+			radius: 1 + Math.random() * 1.8,
+			phase: Math.random() * Math.PI * 2,
+			speed: 0.008 + Math.random() * 0.018,
+		});
+
+		const resize = () => {
+			const dpr = Math.min(window.devicePixelRatio || 1, 2);
+			width = window.innerWidth;
+			height = window.innerHeight;
+			canvas.width = width * dpr;
+			canvas.height = height * dpr;
+			ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+			const count = Math.round(Math.min(45, (width * height) / 34000));
+			fireflies = Array.from({ length: count }, spawn);
+		};
+
+		const tick = () => {
+			ctx.clearRect(0, 0, width, height);
+
+			for (const f of fireflies) {
+				f.phase += f.speed;
+
+				// Gentle wander, plus a soft push away from the cursor
+				f.vx += Math.sin(f.phase * 0.7) * 0.004;
+				const dx = f.x - pointer.x;
+				const dy = f.y - pointer.y;
+				const dist = Math.hypot(dx, dy);
+				if (dist < 140 && dist > 0) {
+					const force = (140 - dist) / 140;
+					f.vx += (dx / dist) * force * 0.25;
+					f.vy += (dy / dist) * force * 0.25;
+				}
+				f.vx *= 0.97;
+				f.vy = f.vy * 0.97 + (-0.18 - f.vy) * 0.03;
+				f.x += f.vx;
+				f.y += f.vy;
+
+				// Wrap around the edges
+				if (f.y < -20) {
+					f.y = height + 20;
+					f.x = Math.random() * width;
+				}
+				if (f.x < -20) f.x = width + 20;
+				if (f.x > width + 20) f.x = -20;
+
+				const flicker = 0.35 + 0.65 * Math.pow((Math.sin(f.phase) + 1) / 2, 2);
+				const glow = f.radius * 7;
+				const gradient = ctx.createRadialGradient(f.x, f.y, 0, f.x, f.y, glow);
+				gradient.addColorStop(0, `rgba(${color}, ${0.9 * flicker})`);
+				gradient.addColorStop(0.15, `rgba(${color}, ${0.45 * flicker})`);
+				gradient.addColorStop(1, `rgba(${color}, 0)`);
+				ctx.fillStyle = gradient;
+				ctx.beginPath();
+				ctx.arc(f.x, f.y, glow, 0, Math.PI * 2);
+				ctx.fill();
+			}
+
+			frame = requestAnimationFrame(tick);
+		};
+
+		readColor();
+		resize();
+		frame = requestAnimationFrame(tick);
+
+		window.addEventListener('resize', resize);
+		window.addEventListener(
+			'pointermove',
+			(event) => {
+				pointer.x = event.clientX;
+				pointer.y = event.clientY;
+			},
+			{ passive: true },
+		);
+		document.addEventListener('pointerleave', () => {
+			pointer.x = pointer.y = -9999;
+		});
+		window.matchMedia('(prefers-color-scheme: dark)').addEventListener('change', readColor);
+
+		// Pause when the tab isn't visible
+		document.addEventListener('visibilitychange', () => {
+			cancelAnimationFrame(frame);
+			if (!document.hidden) frame = requestAnimationFrame(tick);
+		});
+	}
+</script>
+
+<style>
+	.ambient {
+		position: fixed;
+		inset: 0;
+		z-index: -1;
+		overflow: hidden;
+		pointer-events: none;
+	}
+
+	/* Soft pools of light drifting like sun through a canopy */
+	.glow {
+		position: absolute;
+		border-radius: 50%;
+		filter: blur(90px);
+		opacity: var(--glow-opacity);
+		will-change: transform;
+	}
+
+	.glow-1 {
+		top: -15vh;
+		left: -10vw;
+		width: 55vw;
+		height: 55vw;
+		background: var(--moss);
+		animation: drift-1 26s ease-in-out infinite alternate;
+	}
+
+	.glow-2 {
+		top: 35vh;
+		right: -15vw;
+		width: 45vw;
+		height: 45vw;
+		background: var(--amber);
+		animation: drift-2 32s ease-in-out infinite alternate;
+	}
+
+	.glow-3 {
+		bottom: -25vh;
+		left: 20vw;
+		width: 50vw;
+		height: 40vw;
+		background: var(--moss-deep);
+		animation: drift-3 38s ease-in-out infinite alternate;
+	}
+
+	@keyframes drift-1 {
+		to {
+			transform: translate(18vw, 12vh) scale(1.15);
+		}
+	}
+
+	@keyframes drift-2 {
+		to {
+			transform: translate(-22vw, -10vh) scale(0.85);
+		}
+	}
+
+	@keyframes drift-3 {
+		to {
+			transform: translate(-12vw, -18vh) scale(1.2);
+		}
+	}
+
+	.fireflies {
+		position: absolute;
+		inset: 0;
+		width: 100%;
+		height: 100%;
+	}
+
+	/* Film grain for texture */
+	.grain {
+		position: absolute;
+		inset: -50%;
+		opacity: var(--grain-opacity);
+		background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='160' height='160'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='3' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
+		animation: grain 1.2s steps(6) infinite;
+	}
+
+	@keyframes grain {
+		0% { transform: translate(0, 0); }
+		20% { transform: translate(-3%, 2%); }
+		40% { transform: translate(2%, -4%); }
+		60% { transform: translate(-4%, -1%); }
+		80% { transform: translate(3%, 3%); }
+		100% { transform: translate(0, 0); }
+	}
+
+	@media (prefers-reduced-motion: reduce) {
+		.glow,
+		.grain {
+			animation: none;
+		}
+	}
+</style>

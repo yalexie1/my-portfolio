@@ -1,5 +1,6 @@
 ---
 import { Image } from 'astro:assets';
+import Ambient from '../components/Ambient.astro';
 import ProjectCard from '../components/ProjectCard.astro';
 import profilePicture from '../assets/profile_picture.jpg';
 import { experience } from '../data/experience';
@@ -30,6 +31,8 @@ const links = {
 		<title>{name}</title>
 	</head>
 	<body>
+		<Ambient />
+
 		<header class="site-header">
 			<a class="site-name" href="/">{name}</a>
 			<nav class="socials" aria-label="Social links">
@@ -131,6 +134,31 @@ const links = {
 
 			update();
 			window.addEventListener('scroll', update, { passive: true });
+
+			// Reveal timeline entries and project cards as they scroll into view
+			const reveal = document.querySelectorAll<HTMLElement>('.job, .card');
+			const reducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+
+			if (!reducedMotion && 'IntersectionObserver' in window) {
+				const observer = new IntersectionObserver(
+					(entries) => {
+						for (const entry of entries) {
+							if (!entry.isIntersecting) continue;
+							entry.target.classList.replace('will-reveal', 'revealed');
+							observer.unobserve(entry.target);
+						}
+					},
+					{ threshold: 0.2 },
+				);
+
+				reveal.forEach((el) => {
+					if (el.getBoundingClientRect().top < window.innerHeight) return;
+					const index = Array.prototype.indexOf.call(el.parentElement?.children ?? [], el);
+					el.style.setProperty('--reveal-delay', `${index * 140}ms`);
+					el.classList.add('will-reveal');
+					observer.observe(el);
+				});
+			}
 		</script>
 	</body>
 </html>
@@ -143,6 +171,11 @@ const links = {
 		--ink-soft: #4d5446;
 		--line: #d6d2c2;
 		--moss: #4a6b2f;
+		--moss-deep: #6f8f3a;
+		--amber: #d9a441;
+		--firefly: 176, 128, 20;
+		--glow-opacity: 0.2;
+		--grain-opacity: 0.07;
 		--font-display: 'Fraunces', Georgia, serif;
 		--font-body: 'Instrument Sans', system-ui, sans-serif;
 		--font-mono: 'JetBrains Mono', ui-monospace, monospace;
@@ -156,6 +189,11 @@ const links = {
 			--ink-soft: #a9ad9d;
 			--line: #343a2e;
 			--moss: #9cbf6e;
+			--moss-deep: #2f4a1d;
+			--amber: #b8862e;
+			--firefly: 214, 230, 120;
+			--glow-opacity: 0.16;
+			--grain-opacity: 0.05;
 		}
 	}
 
@@ -178,7 +216,8 @@ const links = {
 		margin: 0 auto;
 		max-width: 1100px;
 		padding: 0 1.5rem;
-		background: var(--paper);
+		/* Transparent so the fixed ambient background shows through */
+		background: transparent;
 	}
 
 	::selection {
@@ -189,6 +228,21 @@ const links = {
 	a:focus-visible {
 		outline: 2px solid var(--moss);
 		outline-offset: 3px;
+	}
+
+	.will-reveal {
+		opacity: 0;
+	}
+
+	.revealed {
+		animation: reveal 0.9s cubic-bezier(0.2, 0.7, 0.2, 1) var(--reveal-delay, 0ms) backwards;
+	}
+
+	@keyframes reveal {
+		from {
+			opacity: 0;
+			transform: translateY(28px);
+		}
 	}
 </style>
 
@@ -202,9 +256,6 @@ const links = {
 		justify-content: space-between;
 		align-items: center;
 		padding: 1.25rem 0;
-		background: color-mix(in srgb, var(--paper) 88%, transparent);
-		backdrop-filter: blur(8px);
-		-webkit-backdrop-filter: blur(8px);
 		border-bottom: 1px solid var(--line);
 		transition:
 			opacity 0.35s ease,
@@ -268,6 +319,30 @@ const links = {
 		font-style: italic;
 		color: var(--moss);
 		padding-left: 0.6em;
+		padding-right: 0.1em;
+	}
+
+	/* Light slowly sweeping across the surname */
+	@supports (background-clip: text) or (-webkit-background-clip: text) {
+		h1 em {
+			color: transparent;
+			background: linear-gradient(
+				110deg,
+				var(--moss) 25%,
+				var(--amber) 50%,
+				var(--moss) 75%
+			);
+			background-size: 250% 100%;
+			background-position: 100% 0;
+			-webkit-background-clip: text;
+			background-clip: text;
+		}
+	}
+
+	@keyframes shimmer {
+		to {
+			background-position: 0% 0;
+		}
 	}
 
 	.socials {
@@ -376,6 +451,36 @@ const links = {
 
 	.job:first-child::before {
 		background: var(--moss);
+		box-shadow: 0 0 0 4px color-mix(in srgb, var(--moss) 25%, transparent);
+	}
+
+	/* As each role scrolls in, its stretch of rail draws left to right and its node pops in */
+	.job::after {
+		transform-origin: left;
+	}
+
+	.job.will-reveal::after {
+		transform: scaleX(0);
+	}
+
+	.job.revealed::after {
+		animation: draw-rail 1.1s cubic-bezier(0.6, 0, 0.2, 1) var(--reveal-delay, 0ms) backwards;
+	}
+
+	.job.revealed::before {
+		animation: pop-node 0.5s cubic-bezier(0.3, 1.6, 0.5, 1) calc(var(--reveal-delay, 0ms) + 0.15s) backwards;
+	}
+
+	@keyframes draw-rail {
+		from {
+			transform: scaleX(0);
+		}
+	}
+
+	@keyframes pop-node {
+		from {
+			transform: scale(0);
+		}
 	}
 
 	.job-dates {
@@ -483,7 +588,11 @@ const links = {
 			animation: rise 0.8s cubic-bezier(0.2, 0.7, 0.2, 1) backwards;
 		}
 		h1 span { animation-delay: 0.08s; }
-		h1 em { animation-delay: 0.16s; }
+		h1 em {
+			animation:
+				rise 0.8s cubic-bezier(0.2, 0.7, 0.2, 1) 0.16s backwards,
+				shimmer 9s ease-in-out 1s infinite alternate;
+		}
 		.portrait { animation-name: rise-tilt; animation-delay: 0.2s; }
 		main section:nth-child(1) { animation-delay: 0.35s; }
 		main section:nth-child(2) { animation-delay: 0.45s; }
