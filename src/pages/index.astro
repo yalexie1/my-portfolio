@@ -13,6 +13,11 @@ const links = {
 	linkedin: 'https://www.linkedin.com/in/yalexie',
 	resume: '/YaleXie_Resume.pdf',
 };
+const contact = {
+	email: 'yale.xie@yale.edu',
+	phone: '(512) 354-0432',
+	phoneHref: 'tel:+15123540432',
+};
 ---
 
 <html lang="en">
@@ -123,6 +128,23 @@ const links = {
 						))
 					}
 				</ol>
+			</section>
+
+			<section class="contact" aria-labelledby="contact-heading">
+				<h2 id="contact-heading" class="section-label">Contact</h2>
+				<div class="contact-body">
+					<p class="contact-intro">Feel free to reach out — I'm always happy to chat.</p>
+					<ul class="contact-list">
+						<li>
+							<span class="contact-kind">Email</span>
+							<a href={`mailto:${contact.email}`}>{contact.email}</a>
+						</li>
+						<li>
+							<span class="contact-kind">Phone</span>
+							<a href={contact.phoneHref}>{contact.phone}</a>
+						</li>
+					</ul>
+				</div>
 			</section>
 		</main>
 
@@ -419,7 +441,8 @@ const links = {
 	/* ---------- Experience (left-to-right timeline, newest first) ---------- */
 	/* Heading on its own line above full-width content */
 	main section.experience,
-	main section.projects {
+	main section.projects,
+	main section.contact {
 		grid-template-columns: 1fr;
 	}
 
@@ -547,6 +570,52 @@ const links = {
 		color: var(--moss);
 	}
 
+	/* ---------- Contact ---------- */
+	.contact-intro {
+		margin: 0 0 2rem;
+		color: var(--ink-soft);
+	}
+
+	.contact-list {
+		display: flex;
+		flex-wrap: wrap;
+		gap: 1.5rem 4rem;
+		margin: 0;
+		padding: 0;
+		list-style: none;
+	}
+
+	.contact-list li {
+		display: flex;
+		flex-direction: column;
+		gap: 0.35rem;
+	}
+
+	.contact-kind {
+		font-family: var(--font-mono);
+		font-size: 0.75rem;
+		text-transform: uppercase;
+		letter-spacing: 0.12em;
+		color: var(--moss);
+	}
+
+	.contact-list a {
+		font-family: var(--font-display);
+		font-size: clamp(1.5rem, 4vw, 2.25rem);
+		line-height: 1.2;
+		color: var(--ink);
+		text-decoration: none;
+		background: linear-gradient(var(--moss), var(--moss)) left bottom / 0% 1px no-repeat;
+		transition:
+			color 0.25s ease,
+			background-size 0.35s ease;
+	}
+
+	.contact-list a:hover {
+		color: var(--moss);
+		background-size: 100% 1px;
+	}
+
 	.section-label {
 		margin: 0;
 		font-family: var(--font-mono);
@@ -614,6 +683,7 @@ const links = {
 		main section:nth-child(1) { animation-delay: 0.35s; }
 		main section:nth-child(2) { animation-delay: 0.45s; }
 		main section:nth-child(3) { animation-delay: 0.55s; }
+		main section:nth-child(4) { animation-delay: 0.65s; }
 	}
 
 	@keyframes rise {
