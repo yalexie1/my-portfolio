@@ -1,4 +1,5 @@
 ---
+import { Image } from 'astro:assets';
 import type { Project } from '../data/projects';
 
 interface Props {
@@ -13,6 +14,15 @@ const cardHref = project.live ?? project.repo;
 ---
 
 <article class="card clickable">
+	<Image
+		class="backdrop"
+		src={project.image.src}
+		alt=""
+		widths={[480, 800]}
+		sizes="(max-width: 720px) 100vw, 560px"
+		data-tone={project.image.tone}
+		aria-hidden="true"
+	/>
 	<span class="ghost-number" aria-hidden="true">{number}</span>
 	<span class="number" aria-hidden="true">{number}</span>
 	<h3>
@@ -157,6 +167,51 @@ const cardHref = project.live ?? project.repo;
 
 	.card:hover::after {
 		opacity: 1;
+	}
+
+	/*
+	 * A real screenshot or figure from the project, faded into the card. Desaturated and
+	 * blended so the image's own background vanishes into the card's and only its lines and
+	 * shapes show through; images whose background doesn't match the theme are inverted first.
+	 */
+	.backdrop {
+		position: absolute;
+		top: 0;
+		right: 0;
+		z-index: -2;
+		/* Anchored to the right; the mask below fades its left edge into the card */
+		width: 70%;
+		height: 100%;
+		object-fit: cover;
+		mix-blend-mode: multiply;
+		filter: saturate(0.8) contrast(1.05);
+		opacity: 0.3;
+		-webkit-mask-image: linear-gradient(to right, transparent, rgb(0 0 0 / 0.5) 40%, #000 80%);
+		mask-image: linear-gradient(to right, transparent, rgb(0 0 0 / 0.5) 40%, #000 80%);
+		transition: opacity 0.4s ease;
+		pointer-events: none;
+		user-select: none;
+	}
+
+	/* invert + half-turn hue flips lightness but keeps the original colours */
+	.backdrop[data-tone='dark'] {
+		filter: invert(1) hue-rotate(180deg) saturate(0.8) contrast(1.05);
+	}
+
+	@media (prefers-color-scheme: dark) {
+		.backdrop {
+			mix-blend-mode: screen;
+			filter: invert(1) hue-rotate(180deg) saturate(0.8) contrast(1.05);
+			opacity: 0.3;
+		}
+
+		.backdrop[data-tone='dark'] {
+			filter: saturate(0.8) contrast(1.05);
+		}
+	}
+
+	.card:hover .backdrop {
+		opacity: 0.45;
 	}
 
 	/* Oversized outlined number behind the text, drifting against the tilt for parallax */
