@@ -56,7 +56,7 @@
 		const spawn = (): Glyph => {
 			const isMath = Math.random() < 0.5;
 			const pool = isMath ? MATH : CODE;
-			const size = Math.round(15 + Math.random() * 13);
+			const size = Math.round(22 + Math.random() * 18);
 			return {
 				x: Math.random() * width,
 				y: Math.random() * height,
@@ -78,7 +78,7 @@
 			canvas.width = width * dpr;
 			canvas.height = height * dpr;
 			ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
-			const count = Math.round(Math.min(45, (width * height) / 34000));
+			const count = Math.round(Math.min(45, (width * height) / 30000));
 			glyphs = Array.from({ length: count }, spawn);
 		};
 
@@ -116,14 +116,14 @@
 
 				// Slow tumble and a gentle fade in and out
 				f.angle += f.spin;
-				const flicker = 0.4 + 0.6 * Math.pow((Math.sin(f.phase) + 1) / 2, 2);
+				const flicker = 0.55 + 0.45 * Math.pow((Math.sin(f.phase) + 1) / 2, 2);
 				ctx.save();
 				ctx.translate(f.x, f.y);
 				ctx.rotate(f.angle);
 				ctx.font = f.font;
-				ctx.fillStyle = `rgba(${color}, ${0.5 * flicker})`;
-				ctx.shadowColor = `rgba(${color}, ${0.6 * flicker})`;
-				ctx.shadowBlur = 8;
+				ctx.fillStyle = `rgba(${color}, ${0.75 * flicker})`;
+				ctx.shadowColor = `rgba(${color}, ${0.8 * flicker})`;
+				ctx.shadowBlur = 12;
 				ctx.fillText(f.text, 0, 0);
 				ctx.restore();
 			}

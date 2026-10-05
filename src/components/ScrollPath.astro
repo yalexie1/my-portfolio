@@ -1,12 +1,14 @@
 ---
-// A winding trail behind the page that draws itself as you scroll,
-// with a glowing tip that keeps pace with the reader.
+// A helix coiling down behind the page that draws itself as you scroll,
+// with a glowing tip that keeps pace with the reader. The strands behind
+// the coil's axis are drawn thinner and fainter so it reads as 3D.
 ---
 
 <div class="scroll-path" aria-hidden="true">
 	<svg>
 		<path class="trail-ahead" />
-		<path class="trail" />
+		<path class="trail trail-back" />
+		<path class="trail trail-front" />
 		<circle class="tip-halo" r="18" />
 		<circle class="tip" r="5" />
 	</svg>
@@ -16,22 +18,19 @@
 	const layer = document.querySelector<HTMLElement>('.scroll-path');
 	const svg = layer?.querySelector('svg');
 	const ahead = layer?.querySelector<SVGPathElement>('.trail-ahead');
-	const trail = layer?.querySelector<SVGPathElement>('.trail');
+	const back = layer?.querySelector<SVGPathElement>('.trail-back');
+	const front = layer?.querySelector<SVGPathElement>('.trail-front');
 	const tip = layer?.querySelector<SVGCircleElement>('.tip');
 	const halo = layer?.querySelector<SVGCircleElement>('.tip-halo');
 	const reducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
 
-	if (layer && svg && ahead && trail && tip && halo) {
-		let length = 0;
-		// Samples of (distance along path, y) so we can find where the path crosses a given height
-		let samples: { at: number; x: number; y: number }[] = [];
+	if (layer && svg && ahead && back && front && tip && halo) {
+		// Points along the helix in order, with the distance travelled so far on
+		// the front and back strands, its depth, and its height along the axis
+		let samples: { x: number; y: number; axial: number; depth: number; front: number; back: number }[] = [];
+		let frontLength = 0;
+		let backLength = 0;
 		let pending = false;
-
-		// Deterministic wobble so the path keeps its shape between visits
-		const wobble = (i: number) => {
-			const v = Math.sin(i * 12.9898) * 43758.5453;
-			return v - Math.floor(v);
-		};
 
 		const build = () => {
 			const width = document.documentElement.clientWidth;
@@ -39,40 +38,64 @@
 			layer.style.height = `${height}px`;
 			svg.setAttribute('viewBox', `0 0 ${width} ${height}`);
 
-			// Swing side to side every ~520px, reaching toward the page edges
-			const step = 520;
+			// One full turn every ~620px, swinging out toward the page edges
+			const pitch = 620;
 			const margin = Math.max(24, width * 0.06);
+			const radius = (width / 2 - margin) * 0.92;
+			const rise = pitch / (Math.PI * 2);
+			// Tilting the coil toward the viewer: strong enough that the back of
+			// each turn loops over itself, which is what sells the spiral
+			const tilt = rise * 2.4;
 			// End a little above the bottom so the tip stays fully visible
 			const end = height - 32;
-			const points: [number, number][] = [[width * 0.5, 0]];
-			for (let i = 1, y = step; points[points.length - 1][1] < end; i++, y += step) {
-				const side = i % 2 ? 1 : 0;
-				const reach = 0.55 + wobble(i) * 0.45;
-				const x = side
-					? width / 2 + (width / 2 - margin) * reach
-					: width / 2 - (width / 2 - margin) * reach;
-				points.push([x, Math.min(y, end)]);
-			}
-
-			let d = `M ${points[0][0]} ${points[0][1]}`;
-			for (let i = 1; i < points.length; i++) {
-				const [x0, y0] = points[i - 1];
-				const [x1, y1] = points[i];
-				const bend = (y1 - y0) * 0.55;
-				d += ` C ${x0} ${y0 + bend}, ${x1} ${y1 - bend}, ${x1} ${y1}`;
-			}
-			ahead.setAttribute('d', d);
-			trail.setAttribute('d', d);
-
-			length = trail.getTotalLength();
-			trail.style.strokeDasharray = `${length}`;
+			const start = Math.PI / 2;
+			const step = Math.min(0.08, 5 / radius);
 
 			samples = [];
-			const count = Math.ceil(length / 12);
-			for (let i = 0; i <= count; i++) {
-				const at = (length * i) / count;
-				const p = trail.getPointAtLength(at);
-				samples.push({ at, x: p.x, y: p.y });
+			let d = '';
+			let frontD = '';
+			let backD = '';
+			let wasFront: boolean | null = null;
+			let prev: { x: number; y: number } | null = null;
+			frontLength = 0;
+			backLength = 0;
+
+			for (let theta = start; ; theta += step) {
+				const axial = rise * (theta - start);
+				const x = width / 2 + radius * Math.cos(theta);
+				const y = axial + tilt * (Math.sin(theta) - 1);
+				const depth = Math.sin(theta);
+				const isFront = depth >= 0;
+				const point = `${x.toFixed(1)} ${y.toFixed(1)}`;
+
+				d += prev ? ` L ${point}` : `M ${point}`;
+				if (prev) {
+					const seg = Math.hypot(x - prev.x, y - prev.y);
+					// Each strand is a run of separate pieces; start a new piece when we cross sides
+					const from = `${prev.x.toFixed(1)} ${prev.y.toFixed(1)}`;
+					if (isFront) {
+						frontD += wasFront ? ` L ${point}` : ` M ${from} L ${point}`;
+						frontLength += seg;
+					} else {
+						backD += wasFront === false ? ` L ${point}` : ` M ${from} L ${point}`;
+						backLength += seg;
+					}
+				}
+				wasFront = isFront;
+				prev = { x, y };
+				samples.push({ x, y, axial, depth, front: frontLength, back: backLength });
+				if (axial >= end) break;
+			}
+
+			ahead.setAttribute('d', d);
+			for (const [path, d, length] of [
+				[front, frontD, frontLength],
+				[back, backD, backLength],
+			] as const) {
+				path.setAttribute('d', d || 'M 0 0');
+				// Measure dashes in our own units so they line up with the sample distances
+				path.setAttribute('pathLength', `${Math.max(length, 1)}`);
+				path.style.strokeDasharray = `${Math.max(length, 1)}`;
 			}
 
 			update();
@@ -90,17 +113,23 @@
 				? Infinity
 				: window.scrollY + window.innerHeight * (0.55 + 0.45 * progress);
 
-			// The path only moves downward, so binary search by y
+			// The coil loops back on itself, but its height along the axis only
+			// grows, so binary search on that
 			let lo = 0;
 			let hi = samples.length - 1;
 			while (lo < hi) {
 				const mid = (lo + hi) >> 1;
-				if (samples[mid].y < target) lo = mid + 1;
+				if (samples[mid].axial < target) lo = mid + 1;
 				else hi = mid;
 			}
 			const point = samples[lo];
 
-			trail.style.strokeDashoffset = `${length - point.at}`;
+			front.style.strokeDashoffset = `${Math.max(frontLength, 1) - point.front}`;
+			back.style.strokeDashoffset = `${Math.max(backLength, 1) - point.back}`;
+			// The tip swells as it swings toward you and shrinks round the back
+			const scale = 0.75 + 0.35 * point.depth;
+			tip.setAttribute('r', `${5 * scale}`);
+			halo.setAttribute('r', `${18 * scale}`);
 			for (const circle of [tip, halo]) {
 				circle.setAttribute('cx', `${point.x}`);
 				circle.setAttribute('cy', `${point.y}`);
@@ -153,8 +182,17 @@
 	/* The part you've already travelled */
 	.trail {
 		stroke: var(--moss);
-		stroke-width: 3;
+	}
+
+	.trail-front {
+		stroke-width: 3.5;
 		opacity: var(--path-opacity);
+	}
+
+	/* Strands behind the coil's axis recede */
+	.trail-back {
+		stroke-width: 1.75;
+		opacity: calc(var(--path-opacity) * 0.5);
 	}
 
 	.tip {
