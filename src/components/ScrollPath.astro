@@ -1,14 +1,14 @@
 ---
-// A helix coiling down behind the page that draws itself as you scroll,
-// with a glowing tip that keeps pace with the reader. The strands behind
-// the coil's axis are drawn thinner and fainter so it reads as 3D.
+// A winding trail behind the page that draws itself as you scroll, with a
+// glowing tip that keeps pace with the reader. The travelled trail is a rope
+// of strands that keep twisting around each other along the route.
 ---
 
 <div class="scroll-path" aria-hidden="true">
 	<svg>
 		<path class="trail-ahead" />
-		<path class="trail trail-back" />
-		<path class="trail trail-front" />
+		<g class="strands-back"></g>
+		<g class="strands-front"></g>
 		<circle class="tip-halo" r="18" />
 		<circle class="tip" r="5" />
 	</svg>
@@ -18,19 +18,41 @@
 	const layer = document.querySelector<HTMLElement>('.scroll-path');
 	const svg = layer?.querySelector('svg');
 	const ahead = layer?.querySelector<SVGPathElement>('.trail-ahead');
-	const back = layer?.querySelector<SVGPathElement>('.trail-back');
-	const front = layer?.querySelector<SVGPathElement>('.trail-front');
+	const backLayer = layer?.querySelector<SVGGElement>('.strands-back');
+	const frontLayer = layer?.querySelector<SVGGElement>('.strands-front');
 	const tip = layer?.querySelector<SVGCircleElement>('.tip');
 	const halo = layer?.querySelector<SVGCircleElement>('.tip-halo');
 	const reducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
 
-	if (layer && svg && ahead && back && front && tip && halo) {
-		// Points along the helix in order, with the distance travelled so far on
-		// the front and back strands, its depth, and its height along the axis
-		let samples: { x: number; y: number; axial: number; depth: number; front: number; back: number }[] = [];
-		let frontLength = 0;
-		let backLength = 0;
-		let pending = false;
+	if (layer && svg && ahead && backLayer && frontLayer && tip && halo) {
+		const STRANDS = 3;
+		// How far the strands swing from the route, and how often they twist
+		const RADIUS = 9;
+		const TWIST = 110;
+		const SPIN = 0.0012;
+
+		// Each strand gets a path for the half of each twist in front of the
+		// route and one for the half behind, so crossings read as over and under
+		const makeStrands = (group: SVGGElement) =>
+			Array.from({ length: STRANDS }, () => {
+				const path = document.createElementNS('http://www.w3.org/2000/svg', 'path');
+				group.append(path);
+				return path;
+			});
+		const backs = makeStrands(backLayer);
+		const fronts = makeStrands(frontLayer);
+
+		// Points along the route with their distance along it, and the
+		// direction to push strands out sideways
+		let samples: { at: number; x: number; y: number; nx: number; ny: number }[] = [];
+		let reached = 0;
+		let frame = 0;
+
+		// Deterministic wobble so the path keeps its shape between visits
+		const wobble = (i: number) => {
+			const v = Math.sin(i * 12.9898) * 43758.5453;
+			return v - Math.floor(v);
+		};
 
 		const build = () => {
 			const width = document.documentElement.clientWidth;
@@ -38,71 +60,79 @@
 			layer.style.height = `${height}px`;
 			svg.setAttribute('viewBox', `0 0 ${width} ${height}`);
 
-			// One full turn every ~620px, swinging out toward the page edges
-			const pitch = 620;
+			// Swing side to side every ~520px, reaching toward the page edges
+			const step = 520;
 			const margin = Math.max(24, width * 0.06);
-			const radius = (width / 2 - margin) * 0.92;
-			const rise = pitch / (Math.PI * 2);
-			// Tilting the coil toward the viewer: strong enough that the back of
-			// each turn loops over itself, which is what sells the spiral
-			const tilt = rise * 2.4;
 			// End a little above the bottom so the tip stays fully visible
 			const end = height - 32;
-			const start = Math.PI / 2;
-			const step = Math.min(0.08, 5 / radius);
-
-			samples = [];
-			let d = '';
-			let frontD = '';
-			let backD = '';
-			let wasFront: boolean | null = null;
-			let prev: { x: number; y: number } | null = null;
-			frontLength = 0;
-			backLength = 0;
-
-			for (let theta = start; ; theta += step) {
-				const axial = rise * (theta - start);
-				const x = width / 2 + radius * Math.cos(theta);
-				const y = axial + tilt * (Math.sin(theta) - 1);
-				const depth = Math.sin(theta);
-				const isFront = depth >= 0;
-				const point = `${x.toFixed(1)} ${y.toFixed(1)}`;
-
-				d += prev ? ` L ${point}` : `M ${point}`;
-				if (prev) {
-					const seg = Math.hypot(x - prev.x, y - prev.y);
-					// Each strand is a run of separate pieces; start a new piece when we cross sides
-					const from = `${prev.x.toFixed(1)} ${prev.y.toFixed(1)}`;
-					if (isFront) {
-						frontD += wasFront ? ` L ${point}` : ` M ${from} L ${point}`;
-						frontLength += seg;
-					} else {
-						backD += wasFront === false ? ` L ${point}` : ` M ${from} L ${point}`;
-						backLength += seg;
-					}
-				}
-				wasFront = isFront;
-				prev = { x, y };
-				samples.push({ x, y, axial, depth, front: frontLength, back: backLength });
-				if (axial >= end) break;
+			const points: [number, number][] = [[width * 0.5, 0]];
+			for (let i = 1, y = step; points[points.length - 1][1] < end; i++, y += step) {
+				const side = i % 2 ? 1 : 0;
+				const reach = 0.55 + wobble(i) * 0.45;
+				const x = side
+					? width / 2 + (width / 2 - margin) * reach
+					: width / 2 - (width / 2 - margin) * reach;
+				points.push([x, Math.min(y, end)]);
 			}
 
+			let d = `M ${points[0][0]} ${points[0][1]}`;
+			for (let i = 1; i < points.length; i++) {
+				const [x0, y0] = points[i - 1];
+				const [x1, y1] = points[i];
+				const bend = (y1 - y0) * 0.55;
+				d += ` C ${x0} ${y0 + bend}, ${x1} ${y1 - bend}, ${x1} ${y1}`;
+			}
 			ahead.setAttribute('d', d);
-			for (const [path, d, length] of [
-				[front, frontD, frontLength],
-				[back, backD, backLength],
-			] as const) {
-				path.setAttribute('d', d || 'M 0 0');
-				// Measure dashes in our own units so they line up with the sample distances
-				path.setAttribute('pathLength', `${Math.max(length, 1)}`);
-				path.style.strokeDasharray = `${Math.max(length, 1)}`;
-			}
+
+			const length = ahead.getTotalLength();
+			const count = Math.ceil(length / 6);
+			const route = Array.from({ length: count + 1 }, (_, i) => {
+				const at = (length * i) / count;
+				const p = ahead.getPointAtLength(at);
+				return { at, x: p.x, y: p.y };
+			});
+			samples = route.map((p, i) => {
+				const a = route[Math.max(0, i - 1)];
+				const b = route[Math.min(count, i + 1)];
+				const span = Math.hypot(b.x - a.x, b.y - a.y) || 1;
+				return { ...p, nx: -(b.y - a.y) / span, ny: (b.x - a.x) / span };
+			});
 
 			update();
 		};
 
+		// Redraw the strands up to the tip, twisted by the current spin
+		const draw = (time: number) => {
+			const spin = reducedMotion ? 0 : time * SPIN;
+			for (let k = 0; k < STRANDS; k++) {
+				const offset = (k / STRANDS) * Math.PI * 2;
+				let front = '';
+				let back = '';
+				let wasFront: boolean | null = null;
+				let prev = '';
+				for (let i = 0; i <= reached; i++) {
+					const s = samples[i];
+					const angle = (s.at / TWIST) * Math.PI * 2 + offset - spin;
+					const shift = Math.sin(angle) * RADIUS;
+					const point = `${(s.x + s.nx * shift).toFixed(1)} ${(s.y + s.ny * shift).toFixed(1)}`;
+					const isFront = Math.cos(angle) >= 0;
+					// Start a new piece whenever the strand passes over or under the route
+					if (isFront) front += wasFront ? ` L${point}` : ` M${prev || point} L${point}`;
+					else back += wasFront === false ? ` L${point}` : ` M${prev || point} L${point}`;
+					wasFront = isFront;
+					prev = point;
+				}
+				fronts[k].setAttribute('d', front || 'M0 0');
+				backs[k].setAttribute('d', back || 'M0 0');
+			}
+		};
+
+		const loop = (time: number) => {
+			draw(time);
+			frame = requestAnimationFrame(loop);
+		};
+
 		const update = () => {
-			pending = false;
 			if (!samples.length) return;
 
 			// The tip sits a bit below the middle of the screen, then slides down to
@@ -113,37 +143,34 @@
 				? Infinity
 				: window.scrollY + window.innerHeight * (0.55 + 0.45 * progress);
 
-			// The coil loops back on itself, but its height along the axis only
-			// grows, so binary search on that
+			// The route only moves downward, so binary search by y
 			let lo = 0;
 			let hi = samples.length - 1;
 			while (lo < hi) {
 				const mid = (lo + hi) >> 1;
-				if (samples[mid].axial < target) lo = mid + 1;
+				if (samples[mid].y < target) lo = mid + 1;
 				else hi = mid;
 			}
 			const point = samples[lo];
+			reached = lo;
+			if (reducedMotion) draw(0);
 
-			front.style.strokeDashoffset = `${Math.max(frontLength, 1) - point.front}`;
-			back.style.strokeDashoffset = `${Math.max(backLength, 1) - point.back}`;
-			// The tip swells as it swings toward you and shrinks round the back
-			const scale = 0.75 + 0.35 * point.depth;
-			tip.setAttribute('r', `${5 * scale}`);
-			halo.setAttribute('r', `${18 * scale}`);
 			for (const circle of [tip, halo]) {
 				circle.setAttribute('cx', `${point.x}`);
 				circle.setAttribute('cy', `${point.y}`);
 			}
 		};
 
-		const schedule = () => {
-			if (pending) return;
-			pending = true;
-			requestAnimationFrame(update);
-		};
-
 		build();
-		window.addEventListener('scroll', schedule, { passive: true });
+		window.addEventListener('scroll', update, { passive: true });
+		if (!reducedMotion) {
+			frame = requestAnimationFrame(loop);
+			// Pause the twisting when the tab isn't visible
+			document.addEventListener('visibilitychange', () => {
+				cancelAnimationFrame(frame);
+				if (!document.hidden) frame = requestAnimationFrame(loop);
+			});
+		}
 		// Rebuild when the page size changes (resize, fonts or images loading)
 		new ResizeObserver(build).observe(document.body);
 	}
@@ -166,7 +193,7 @@
 		overflow: visible;
 	}
 
-	path {
+	:global(.scroll-path path) {
 		fill: none;
 		stroke-linecap: round;
 	}
@@ -179,20 +206,17 @@
 		opacity: var(--path-ahead-opacity);
 	}
 
-	/* The part you've already travelled */
-	.trail {
+	/* The part you've already travelled: strands twisting over and under */
+	.strands-front :global(path) {
 		stroke: var(--moss);
-	}
-
-	.trail-front {
-		stroke-width: 3.5;
+		stroke-width: 2.5;
 		opacity: var(--path-opacity);
 	}
 
-	/* Strands behind the coil's axis recede */
-	.trail-back {
-		stroke-width: 1.75;
-		opacity: calc(var(--path-opacity) * 0.5);
+	.strands-back :global(path) {
+		stroke: var(--moss);
+		stroke-width: 1.5;
+		opacity: calc(var(--path-opacity) * 0.45);
 	}
 
 	.tip {
