@@ -1,0 +1,558 @@
+---
+// Entrance: a round stone door set in a mossy rock archway. Scrolling (or a
+// tap, click, or key) pushes in toward the door as it slides open, revealing
+// the page behind. Plays once per browser session; add ?intro to replay it.
+
+// Scene is drawn on a 1600×1000 canvas with the door at its centre
+const W = 1600;
+const H = 1000;
+const CX = W / 2;
+const CY = H / 2;
+// Radius of the opening in the rock, and of the door filling it
+const HOLE = 214;
+const DOOR = 220;
+
+// Deterministic randomness so the rocks keep their shape between visits
+let seed = 7;
+const rand = () => {
+	seed = (seed * 16807) % 2147483647;
+	return (seed - 1) / 2147483646;
+};
+const between = (lo: number, hi: number) => lo + rand() * (hi - lo);
+const f = (n: number) => n.toFixed(1);
+
+// A lumpy closed shape around a centre, smoothed with Catmull-Rom curves
+const blob = (cx: number, cy: number, rx: number, ry: number, lumps = 9, jitter = 0.2) => {
+	const pts = Array.from({ length: lumps }, (_, i) => {
+		const a = (i / lumps) * Math.PI * 2;
+		const r = 1 - jitter / 2 + rand() * jitter;
+		return [cx + Math.cos(a) * rx * r, cy + Math.sin(a) * ry * r];
+	});
+	let d = `M${f(pts[0][0])} ${f(pts[0][1])}`;
+	for (let i = 0; i < lumps; i++) {
+		const p0 = pts[(i - 1 + lumps) % lumps];
+		const p1 = pts[i];
+		const p2 = pts[(i + 1) % lumps];
+		const p3 = pts[(i + 2) % lumps];
+		const c1 = [p1[0] + (p2[0] - p0[0]) / 6, p1[1] + (p2[1] - p0[1]) / 6];
+		const c2 = [p2[0] - (p3[0] - p1[0]) / 6, p2[1] - (p3[1] - p1[1]) / 6];
+		d += ` C${f(c1[0])} ${f(c1[1])} ${f(c2[0])} ${f(c2[1])} ${f(p2[0])} ${f(p2[1])}`;
+	}
+	return d + 'Z';
+};
+
+interface Rock {
+	shadow: string;
+	body: string;
+	light: string;
+	moss?: string;
+}
+
+const rock = (cx: number, cy: number, rx: number, ry: number, mossy: boolean): Rock => ({
+	shadow: blob(cx + 4, cy + ry * 0.12, rx * 1.02, ry, 9, 0.18),
+	body: blob(cx, cy, rx, ry, 9, 0.2),
+	light: blob(cx - rx * 0.18, cy - ry * 0.3, rx * 0.6, ry * 0.42, 7, 0.3),
+	moss: mossy ? blob(cx - rx * 0.05, cy - ry * 0.62, rx * 0.62, ry * 0.26, 8, 0.45) : undefined,
+});
+
+// Big boulders framing the scene at either side, drawn first
+const boulders: Rock[] = [
+	rock(120, 250, 300, 230, true),
+	rock(90, 640, 280, 260, false),
+	rock(250, 960, 360, 200, true),
+	rock(1480, 260, 300, 240, true),
+	rock(1520, 650, 270, 250, false),
+	rock(1350, 970, 360, 190, true),
+];
+
+// A ring of stones around the opening, overlapping the door's edge
+const ring: Rock[] = [];
+const ringCount = 15;
+for (let i = 0; i < ringCount; i++) {
+	const a = (i / ringCount) * Math.PI * 2 - Math.PI / 2 + between(-0.08, 0.08);
+	const dist = HOLE + between(48, 70);
+	const cx = CX + Math.cos(a) * dist;
+	const cy = CY + Math.sin(a) * dist * 0.96;
+	ring.push(rock(cx, cy, between(72, 100), between(58, 82), Math.sin(a) < -0.2));
+}
+
+// Tree trunks fading into the dark behind the rocks
+const trunks = [
+	{ x: 330, w: 70 },
+	{ x: 470, w: 46 },
+	{ x: 560, w: 30 },
+	{ x: 1060, w: 34 },
+	{ x: 1160, w: 52 },
+	{ x: 1290, w: 78 },
+];
+
+// Vines hanging from the stones over the top of the door
+const vines = [-2.05, -1.72, -1.25, -0.95].map((a, i) => {
+	const x = CX + Math.cos(a) * (HOLE + 30);
+	const y = CY + Math.sin(a) * (HOLE + 30);
+	const length = 120 + i * 37 + between(0, 50);
+	const sway = between(-26, 26);
+	const d = `M${f(x)} ${f(y)} C${f(x + sway)} ${f(y + length * 0.35)} ${f(x - sway)} ${f(y + length * 0.7)} ${f(x + sway * 0.4)} ${f(y + length)}`;
+	const leaves = Array.from({ length: 6 }, (_, j) => {
+		const t = (j + 1) / 7;
+		const lx = x + sway * Math.sin(t * Math.PI) * (t < 0.5 ? 1 : -0.6);
+		const ly = y + length * t;
+		return { x: lx + (j % 2 ? 7 : -7), y: ly, angle: j % 2 ? 35 : -35, size: 7 + rand() * 4 };
+	});
+	return { d, leaves };
+});
+
+// Little clusters of pale flowers on the boulders
+const flowerSpots = [
+	[150, 120],
+	[250, 420],
+	[60, 520],
+	[330, 830],
+	[1440, 120],
+	[1350, 420],
+	[1560, 520],
+	[1270, 850],
+];
+const flowers = flowerSpots.flatMap(([x, y]) =>
+	Array.from({ length: 3 + Math.floor(rand() * 3) }, () => ({
+		x: x + between(-34, 34),
+		y: y + between(-24, 24),
+		r: between(5, 9),
+	})),
+);
+
+// Door hardware: six spokes around a central octagon, and rivets on the rim
+const spokes = [30, 90, 150, 210, 270, 330].map((deg) => {
+	const a = (deg * Math.PI) / 180;
+	return { x1: CX + Math.cos(a) * 62, y1: CY + Math.sin(a) * 62, x2: CX + Math.cos(a) * 196, y2: CY + Math.sin(a) * 196 };
+});
+const octagon = (r: number) =>
+	Array.from({ length: 8 }, (_, i) => {
+		const a = (i / 8) * Math.PI * 2 + Math.PI / 8;
+		return `${f(CX + Math.cos(a) * r)},${f(CY + Math.sin(a) * r)}`;
+	}).join(' ');
+const rivets = Array.from({ length: 24 }, (_, i) => {
+	const a = (i / 24) * Math.PI * 2 + Math.PI / 24;
+	return { x: CX + Math.cos(a) * 207, y: CY + Math.sin(a) * 207 };
+});
+
+const fireflies = Array.from({ length: 16 }, () => ({
+	x: between(80, 1520),
+	y: between(80, 920),
+	delay: between(0, 6),
+	duration: between(4, 8),
+}));
+---
+
+<div class="door-intro">
+	<div class="door-scene" aria-hidden="true">
+		<svg viewBox={`0 0 ${W} ${H}`} preserveAspectRatio="xMidYMid slice">
+			<defs>
+				<radialGradient id="door-wall" cx="50%" cy="50%" r="70%">
+					<stop offset="0%" stop-color="var(--door-wall-light)" />
+					<stop offset="100%" stop-color="var(--door-wall)" />
+				</radialGradient>
+				<radialGradient id="door-metal" cx="40%" cy="35%" r="75%">
+					<stop offset="0%" stop-color="var(--door-metal-light)" />
+					<stop offset="100%" stop-color="var(--door-metal)" />
+				</radialGradient>
+				<clipPath id="door-hole">
+					<circle cx={CX} cy={CY} r={HOLE} />
+				</clipPath>
+				<clipPath id="door-left-half">
+					<rect x="0" y="0" width={CX} height={H} />
+				</clipPath>
+				<clipPath id="door-right-half">
+					<rect x={CX} y="0" width={CX} height={H} />
+				</clipPath>
+				<g id="door-face">
+					<circle cx={CX} cy={CY} r={DOOR} fill="url(#door-metal)" />
+					<circle cx={CX} cy={CY} r="196" fill="var(--door-panel)" />
+					<circle cx={CX} cy={CY} r="124" fill="none" stroke="var(--door-metal-dark)" stroke-width="2" opacity="0.6" />
+					{
+						spokes.map((s) => (
+							<line x1={f(s.x1)} y1={f(s.y1)} x2={f(s.x2)} y2={f(s.y2)} stroke="var(--door-metal-dark)" stroke-width="26" stroke-linecap="round" />
+						))
+					}
+					{
+						spokes.map((s) => (
+							<line x1={f(s.x1)} y1={f(s.y1)} x2={f(s.x2)} y2={f(s.y2)} stroke="var(--door-metal-light)" stroke-width="8" stroke-linecap="round" opacity="0.5" />
+						))
+					}
+					<circle cx={CX} cy={CY} r="200" fill="none" stroke="var(--door-metal-dark)" stroke-width="16" />
+					<polygon points={octagon(70)} fill="var(--door-metal-dark)" />
+					<polygon points={octagon(54)} fill="var(--door-panel)" stroke="var(--door-metal-light)" stroke-width="2" />
+					<text x={CX} y={CY + 15} text-anchor="middle" class="door-monogram">YX</text>
+					{rivets.map((r) => <circle cx={f(r.x)} cy={f(r.y)} r="3.5" fill="var(--door-metal-light)" />)}
+					<path d={blob(CX - 120, CY - 168, 60, 22, 8, 0.5)} fill="var(--door-moss)" opacity="0.75" />
+					<path d={blob(CX + 96, CY - 178, 48, 18, 8, 0.5)} fill="var(--door-moss)" opacity="0.7" />
+				</g>
+			</defs>
+
+			<!-- Dark forest wall with the opening cut out of it -->
+			<path
+				fill="url(#door-wall)"
+				fill-rule="evenodd"
+				d={`M${-W} ${-H}H${W * 2}V${H * 2}H${-W}Z M${CX - HOLE} ${CY} a${HOLE} ${HOLE} 0 1 0 ${HOLE * 2} 0 a${HOLE} ${HOLE} 0 1 0 ${-HOLE * 2} 0Z`}
+			/>
+			{trunks.map((t) => <rect x={t.x - t.w / 2} y={-H} width={t.w} height={H * 3} rx={t.w / 2} fill="var(--door-trunk)" />)}
+
+			<!-- The two halves of the door, which slide apart into the rock -->
+			<g clip-path="url(#door-hole)">
+				<g class="door-left">
+					<use href="#door-face" clip-path="url(#door-left-half)" />
+				</g>
+				<g class="door-right">
+					<use href="#door-face" clip-path="url(#door-right-half)" />
+				</g>
+				<line class="door-seam" x1={CX} y1={CY - HOLE} x2={CX} y2={CY + HOLE} />
+			</g>
+
+			{
+				[...boulders, ...ring].map((r) => (
+					<g>
+						<path d={r.shadow} fill="var(--door-rock-dark)" />
+						<path d={r.body} fill="var(--door-rock)" />
+						<path d={r.light} fill="var(--door-rock-light)" opacity="0.7" />
+						{r.moss && <path d={r.moss} fill="var(--door-moss)" opacity="0.85" />}
+					</g>
+				))
+			}
+
+			{
+				vines.map((v) => (
+					<g>
+						<path d={v.d} fill="none" stroke="var(--door-moss)" stroke-width="3" stroke-linecap="round" />
+						{v.leaves.map((l) => (
+							<ellipse
+								cx={f(l.x)}
+								cy={f(l.y)}
+								rx={f(l.size)}
+								ry={f(l.size * 0.5)}
+								transform={`rotate(${l.angle} ${f(l.x)} ${f(l.y)})`}
+								fill="var(--door-moss)"
+							/>
+						))}
+					</g>
+				))
+			}
+
+			{
+				flowers.map((fl) => (
+					<g>
+						<circle cx={f(fl.x)} cy={f(fl.y)} r={f(fl.r)} fill="var(--door-flower)" />
+						<circle cx={f(fl.x)} cy={f(fl.y)} r={f(fl.r * 0.35)} fill="var(--door-flower-centre)" />
+					</g>
+				))
+			}
+
+			{
+				fireflies.map((ff) => (
+					<circle
+						class="door-firefly"
+						cx={f(ff.x)}
+						cy={f(ff.y)}
+						r="3"
+						style={`animation-delay: -${f(ff.delay)}s; animation-duration: ${f(ff.duration)}s`}
+					/>
+				))
+			}
+		</svg>
+	</div>
+
+	<p class="door-hint" aria-hidden="true">Scroll to enter <span>↓</span></p>
+	<button type="button" class="door-skip">Skip intro</button>
+</div>
+
+<script>
+	const intro = document.querySelector<HTMLElement>('.door-intro');
+	const root = document.documentElement;
+
+	if (intro && root.classList.contains('door-closed')) {
+		const scene = intro.querySelector<HTMLElement>('.door-scene')!;
+		const left = intro.querySelector<SVGGElement>('.door-left')!;
+		const right = intro.querySelector<SVGGElement>('.door-right')!;
+		const seam = intro.querySelector<SVGLineElement>('.door-seam')!;
+		const hint = intro.querySelector<HTMLElement>('.door-hint')!;
+		const skip = intro.querySelector<HTMLButtonElement>('.door-skip')!;
+
+		const clamp = (v: number) => Math.min(1, Math.max(0, v));
+		const easeInOut = (t: number) => (t < 0.5 ? 4 * t * t * t : 1 - Math.pow(-2 * t + 2, 3) / 2);
+
+		// p is the shown progress, easing toward target, which input drives
+		let p = 0;
+		let target = 0;
+		let committed = false;
+		let finished = false;
+		let lastInput = 0;
+		let lastFrame = 0;
+		let frame = 0;
+		let endZoom = 6;
+		let touchY = 0;
+
+		window.scrollTo(0, 0);
+
+		const svg = scene.querySelector('svg')!;
+
+		const measure = () => {
+			// On tall screens, cropping to fill the height would cut off the archway,
+			// so fit its width instead and let the dark wall run above and below
+			const aspect = innerWidth / innerHeight;
+			let scale: number;
+			if (1000 * aspect < 820) {
+				const height = 820 / aspect;
+				svg.setAttribute('viewBox', `390 ${500 - height / 2} 820 ${height}`);
+				scale = innerWidth / 820;
+			} else {
+				svg.setAttribute('viewBox', '0 0 1600 1000');
+				scale = Math.max(innerWidth / 1600, innerHeight / 1000);
+			}
+			// Zoom far enough that the opening covers the whole screen
+			endZoom = (Math.hypot(innerWidth, innerHeight) / 2 / (214 * scale)) * 1.2;
+		};
+
+		const render = () => {
+			const open = easeInOut(clamp((p - 0.06) / 0.5));
+			left.style.transform = `translateX(${-open * 230}px)`;
+			right.style.transform = `translateX(${open * 230}px)`;
+			// Light leaks through the seam as the door unlocks, then fades as it parts
+			seam.style.opacity = `${clamp(p / 0.06) * (1 - open)}`;
+			scene.style.transform = `scale(${1 + (endZoom - 1) * Math.pow(p, 2.2)})`;
+			intro.style.opacity = `${1 - clamp((p - 0.8) / 0.2)}`;
+			hint.style.opacity = `${1 - clamp(p / 0.08)}`;
+			// Let the page's own entrance animations play as it comes into view
+			if (p > 0.45) root.classList.remove('door-hold');
+		};
+
+		const finish = () => {
+			if (finished) return;
+			finished = true;
+			cancelAnimationFrame(frame);
+			try {
+				sessionStorage.setItem('door-opened', '1');
+			} catch {}
+			root.classList.remove('door-closed', 'door-hold');
+			intro.remove();
+			// Swallow trailing trackpad momentum so the page doesn't lurch once it's open
+			setTimeout(() => {
+				window.removeEventListener('wheel', onWheel);
+				window.removeEventListener('touchmove', onTouchMove);
+			}, 600);
+			window.removeEventListener('keydown', onKey);
+			window.removeEventListener('resize', measure);
+		};
+
+		const commit = () => {
+			committed = true;
+			target = 1;
+		};
+
+		const nudge = (amount: number) => {
+			if (committed || finished) return;
+			target = clamp(target + amount);
+			lastInput = performance.now();
+			if (target > 0.5) commit();
+		};
+
+		const onWheel = (event: WheelEvent) => {
+			event.preventDefault();
+			const lines = event.deltaMode === 1 ? 16 : event.deltaMode === 2 ? innerHeight : 1;
+			nudge((event.deltaY * lines) / 1100);
+		};
+
+		const onTouchStart = (event: TouchEvent) => {
+			touchY = event.touches[0].clientY;
+		};
+
+		const onTouchMove = (event: TouchEvent) => {
+			event.preventDefault();
+			const y = event.touches[0].clientY;
+			nudge((touchY - y) / 450);
+			touchY = y;
+		};
+
+		const onKey = (event: KeyboardEvent) => {
+			if (event.metaKey || event.ctrlKey || event.altKey) return;
+			if (event.key === 'Escape') return finish();
+			if (event.key === 'Tab') return;
+			event.preventDefault();
+			commit();
+		};
+
+		const tick = (now: number) => {
+			const dt = lastFrame ? Math.min(0.05, (now - lastFrame) / 1000) : 0;
+			lastFrame = now;
+
+			// Once input pauses, either carry on through the door or settle back
+			if (!committed && target > 0 && now - lastInput > 200) {
+				if (target > 0.12) commit();
+				else target = 0;
+			}
+
+			const step = (target - p) * (1 - Math.exp(-(committed ? 3.5 : 10) * dt));
+			// Keep a minimum pace once committed so the end doesn't drag
+			p = committed ? Math.min(target, p + Math.max(step, 0.45 * dt)) : p + step;
+			render();
+
+			if (committed && p >= 0.999) return finish();
+			frame = requestAnimationFrame(tick);
+		};
+
+		measure();
+		render();
+		window.addEventListener('wheel', onWheel, { passive: false });
+		window.addEventListener('touchstart', onTouchStart, { passive: true });
+		window.addEventListener('touchmove', onTouchMove, { passive: false });
+		window.addEventListener('keydown', onKey);
+		window.addEventListener('resize', measure);
+		intro.addEventListener('click', (event) => {
+			if (event.target === skip) finish();
+			else commit();
+		});
+		frame = requestAnimationFrame(tick);
+	}
+</script>
+
+<style>
+	.door-intro {
+		--door-wall: #070a06;
+		--door-wall-light: #141a11;
+		--door-trunk: #0d120b;
+		--door-rock: #5c6452;
+		--door-rock-light: #7f8971;
+		--door-rock-dark: #343a2e;
+		--door-moss: #6f9a3e;
+		--door-metal: #222a24;
+		--door-metal-light: #4a574b;
+		--door-metal-dark: #151a16;
+		--door-panel: #2e3a34;
+		--door-flower: #e4dfc6;
+		--door-flower-centre: #c9a548;
+		--door-glow: #d6e678;
+
+		display: none;
+		position: fixed;
+		inset: 0;
+		z-index: 100;
+		overflow: hidden;
+		cursor: pointer;
+		touch-action: none;
+	}
+
+	@media (prefers-color-scheme: light) {
+		.door-intro {
+			--door-wall: #1d2619;
+			--door-wall-light: #34422b;
+			--door-trunk: #27321f;
+			--door-rock: #8a9279;
+			--door-rock-light: #aab296;
+			--door-rock-dark: #5d6550;
+			--door-moss: #6f9a3e;
+			--door-metal: #333d36;
+			--door-metal-light: #66756a;
+			--door-metal-dark: #20271f;
+			--door-panel: #42514a;
+		}
+	}
+
+	:global(html.door-closed) .door-intro {
+		display: block;
+	}
+
+	.door-scene {
+		position: absolute;
+		inset: 0;
+		transform-origin: 50% 50%;
+		will-change: transform;
+	}
+
+	svg {
+		display: block;
+		width: 100%;
+		height: 100%;
+	}
+
+	.door-left,
+	.door-right {
+		will-change: transform;
+	}
+
+	.door-seam {
+		stroke: var(--door-glow);
+		stroke-width: 3;
+		opacity: 0;
+		filter: drop-shadow(0 0 6px var(--door-glow));
+	}
+
+	.door-monogram {
+		font-family: var(--font-display);
+		font-style: italic;
+		font-size: 44px;
+		fill: var(--door-moss);
+		opacity: 0.9;
+	}
+
+	.door-firefly {
+		fill: var(--door-glow);
+		filter: drop-shadow(0 0 4px var(--door-glow));
+		animation: door-firefly 6s ease-in-out infinite;
+	}
+
+	@keyframes door-firefly {
+		0%,
+		100% {
+			opacity: 0;
+			transform: translate(0, 0);
+		}
+		50% {
+			opacity: 0.9;
+			transform: translate(12px, -18px);
+		}
+	}
+
+	.door-hint {
+		position: absolute;
+		left: 50%;
+		bottom: 2.5rem;
+		translate: -50% 0;
+		margin: 0;
+		font-family: var(--font-mono);
+		font-size: 0.8rem;
+		letter-spacing: 0.14em;
+		text-transform: uppercase;
+		color: var(--door-flower);
+		text-shadow: 0 1px 8px rgb(0 0 0 / 0.6);
+		pointer-events: none;
+	}
+
+	.door-hint span {
+		display: inline-block;
+		margin-left: 0.3em;
+		animation: door-bob 1.6s ease-in-out infinite;
+	}
+
+	@keyframes door-bob {
+		50% {
+			transform: translateY(5px);
+		}
+	}
+
+	.door-skip {
+		position: absolute;
+		top: 1.25rem;
+		right: 1.25rem;
+		padding: 0.45rem 0.9rem;
+		font-family: var(--font-mono);
+		font-size: 0.75rem;
+		letter-spacing: 0.06em;
+		color: var(--door-flower);
+		background: rgb(0 0 0 / 0.35);
+		border: 1px solid rgb(255 255 255 / 0.2);
+		border-radius: 999px;
+		cursor: pointer;
+	}
+
+	.door-skip:hover {
+		background: rgb(0 0 0 / 0.55);
+	}
+</style>

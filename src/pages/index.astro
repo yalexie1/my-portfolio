@@ -1,6 +1,7 @@
 ---
 import { Image } from 'astro:assets';
 import Ambient from '../components/Ambient.astro';
+import DoorIntro from '../components/DoorIntro.astro';
 import ProjectCard from '../components/ProjectCard.astro';
 import ScrollPath from '../components/ScrollPath.astro';
 import profilePicture from '../assets/profile_picture.jpg';
@@ -38,8 +39,20 @@ const contact = {
 			rel="stylesheet"
 		/>
 		<title>{name}</title>
+		<!-- Decide before first paint whether the door intro plays: once per session,
+		     never with reduced motion or a link to a section, and always with ?intro -->
+		<script is:inline>
+			try {
+				const force = new URLSearchParams(location.search).has('intro');
+				const calm = matchMedia('(prefers-reduced-motion: reduce)').matches;
+				if (force || (!sessionStorage.getItem('door-opened') && !calm && !location.hash)) {
+					document.documentElement.classList.add('door-closed', 'door-hold');
+				}
+			} catch {}
+		</script>
 	</head>
 	<body>
+		<DoorIntro />
 		<Ambient />
 		<ScrollPath />
 
@@ -993,6 +1006,15 @@ const contact = {
 	}
 
 	/* ---------- Load animation ---------- */
+	/* Hold the entrance animations while the door intro is closed, so they play as it opens */
+	html.door-hold :is(.site-header, .tagline, .eyebrow, h1 span, h1 em, .portrait, main section) {
+		animation-play-state: paused;
+	}
+
+	html.door-closed {
+		overflow: hidden;
+	}
+
 	@media (prefers-reduced-motion: no-preference) {
 		.site-header,
 		.tagline,
