@@ -12,8 +12,6 @@ const CY = H / 2;
 const HOLE = 214;
 const DOOR = 220;
 
-import { deflateSync } from 'node:zlib';
-
 // Deterministic randomness so the rocks keep their shape between visits
 let seed = 7;
 const rand = () => {
@@ -50,52 +48,37 @@ const blob = (cx: number, cy: number, rx: number, ry: number, lumps = 9, jitter 
 	return d + 'Z';
 };
 
-// Tiny RGBA PNG encoder, used to bake grain textures at build time. A live
-// SVG noise filter would be recomputed on every frame of the zoom.
-const crcTable = Array.from({ length: 256 }, (_, n) => {
-	let c = n;
-	for (let k = 0; k < 8; k++) c = c & 1 ? 0xedb88320 ^ (c >>> 1) : c >>> 1;
-	return c >>> 0;
-});
-const crc = (buf: Buffer) => {
-	let c = 0xffffffff;
-	for (const b of buf) c = crcTable[(c ^ b) & 0xff] ^ (c >>> 8);
-	return (c ^ 0xffffffff) >>> 0;
-};
-const chunk = (type: string, data: Buffer) => {
-	const len = Buffer.alloc(4);
-	len.writeUInt32BE(data.length);
-	const body = Buffer.concat([Buffer.from(type), data]);
-	const sum = Buffer.alloc(4);
-	sum.writeUInt32BE(crc(body));
-	return Buffer.concat([len, body, sum]);
-};
-const png = (size: number, pixel: (x: number, y: number) => [number, number, number, number]) => {
-	const raw = Buffer.alloc(size * (size * 4 + 1));
-	for (let y = 0; y < size; y++)
-		for (let x = 0; x < size; x++) raw.set(pixel(x, y), y * (size * 4 + 1) + 1 + x * 4);
-	const header = Buffer.alloc(13);
-	header.writeUInt32BE(size, 0);
-	header.writeUInt32BE(size, 4);
-	header.set([8, 6, 0, 0, 0], 8);
-	const file = Buffer.concat([
-		Buffer.from([137, 80, 78, 71, 13, 10, 26, 10]),
-		chunk('IHDR', header),
-		chunk('IDAT', deflateSync(raw)),
-		chunk('IEND', Buffer.alloc(0)),
-	]);
-	return `data:image/png;base64,${file.toString('base64')}`;
+// A rock outline with flat faces and softly rounded corners
+const facet = (cx: number, cy: number, rx: number, ry: number, sides = 7, jitter = 0.22, round = 0.13) => {
+	const offset = rand() * Math.PI * 2;
+	const pts = Array.from({ length: sides }, (_, i) => {
+		const a = offset + ((i + between(-0.25, 0.25)) / sides) * Math.PI * 2;
+		const r = 1 - jitter / 2 + rand() * jitter;
+		return [cx + Math.cos(a) * rx * r, cy + Math.sin(a) * ry * r];
+	});
+	const lerp = (p: number[], q: number[], t: number) => [p[0] + (q[0] - p[0]) * t, p[1] + (q[1] - p[1]) * t];
+	let d = '';
+	for (let i = 0; i < sides; i++) {
+		const p = pts[i];
+		const next = pts[(i + 1) % sides];
+		const prev = pts[(i - 1 + sides) % sides];
+		const a = lerp(p, prev, round);
+		const b = lerp(p, next, round);
+		d += `${i ? 'L' : 'M'}${f(a[0])} ${f(a[1])}Q${f(p[0])} ${f(p[1])} ${f(b[0])} ${f(b[1])}`;
+	}
+	return d + 'Z';
 };
 
-// Fine specks, some dark and some pale, like a stippled print
-const specks = png(128, () => {
-	const v = detail();
-	if (v < 0.07) return [20, 24, 16, Math.round(40 + detail() * 50)];
-	if (v > 0.975) return [236, 240, 220, Math.round(30 + detail() * 40)];
-	return [0, 0, 0, 0];
-});
-// Broad blotches: a coarse grid of random shades, smoothed out when stretched
-const mottle = png(32, () => [16, 20, 12, Math.round(Math.max(0, detail() - 0.4) * 80)]);
+// A ragged edge of leaves or shadow: straight spikes in and out
+const jagged = (cx: number, cy: number, rx: number, ry: number, points = 14) => {
+	let d = '';
+	for (let i = 0; i < points * 2; i++) {
+		const a = (i / (points * 2)) * Math.PI * 2 + detailBetween(-0.08, 0.08);
+		const r = i % 2 ? detailBetween(0.62, 0.8) : detailBetween(0.92, 1.18);
+		d += `${i ? 'L' : 'M'}${f(cx + Math.cos(a) * rx * r)} ${f(cy + Math.sin(a) * ry * r)}`;
+	}
+	return d + 'Z';
+};
 
 // A spiky clump of leaves, alternating long and short points
 const tuft = (cx: number, cy: number, size: number) => {
@@ -114,54 +97,42 @@ const tuft = (cx: number, cy: number, size: number) => {
 const leafTones = ['var(--door-moss-dark)', 'var(--door-moss)', 'var(--door-moss)', 'var(--door-moss-light)'];
 
 interface Rock {
-	shadow: string;
+	id: number;
+	cx: number;
+	cy: number;
+	rx: number;
+	ry: number;
 	body: string;
-	shade: string;
-	light: string;
-	sheen: string;
-	pits: string[];
-	crack: string;
-	crackWidth: number;
+	lit: string;
+	side: string;
 	moss?: string;
+	mossShadow?: string;
 	tufts: { d: string; fill: string }[];
 }
 
-const rock = (cx: number, cy: number, rx: number, ry: number, mossy: boolean): Rock => {
-	const shadow = blob(cx + 4, cy + ry * 0.12, rx * 1.02, ry, 9, 0.18);
-	const body = blob(cx, cy, rx, ry, 9, 0.2);
-	const light = blob(cx - rx * 0.18, cy - ry * 0.3, rx * 0.6, ry * 0.42, 7, 0.3);
-	const moss = mossy ? blob(cx - rx * 0.05, cy - ry * 0.62, rx * 0.62, ry * 0.26, 8, 0.45) : undefined;
-
-	// Extra planes of light and shadow, a few pits, and a crack, so the faces aren't flat
-	const shadeBlob = (ox: number, oy: number, sx: number, sy: number) =>
-		blob(cx + rx * ox, cy + ry * oy, rx * sx, ry * sy, 7, 0.4);
-	const shade = shadeBlob(0.28, 0.32, 0.5, 0.34);
-	const sheen = shadeBlob(detailBetween(-0.4, -0.1), detailBetween(-0.45, -0.3), 0.26, 0.12);
-	const pits = Array.from({ length: 2 + Math.floor(detail() * 3) }, () =>
-		shadeBlob(detailBetween(-0.55, 0.55), detailBetween(-0.1, 0.55), detailBetween(0.04, 0.1), detailBetween(0.03, 0.07)),
-	);
-	let x = cx + rx * detailBetween(-0.35, 0.35);
-	let y = cy - ry * detailBetween(0.05, 0.25);
-	let crack = `M${f(x)} ${f(y)}`;
-	for (let i = 0; i < 4; i++) {
-		x += rx * detailBetween(-0.1, 0.1);
-		y += ry * detailBetween(0.08, 0.15);
-		crack += `L${f(x)} ${f(y)}`;
-	}
+let rockId = 0;
+// Light falls from the upper right: a lit top plane, a shadowed lower-left
+// face, and a ragged shadow cast by any moss onto the stone below it
+const rock = (cx: number, cy: number, rx: number, ry: number, mossy: boolean, angular = true): Rock => {
+	const body = angular ? facet(cx, cy, rx, ry, 6 + Math.floor(rand() * 3)) : blob(cx, cy, rx, ry, 9, 0.2);
+	const lit = facet(cx + rx * 0.15, cy - ry * 0.55, rx * 0.95, ry * 0.55, 6, 0.3, 0.12);
+	const side = facet(cx - rx * 0.55, cy + ry * 0.55, rx * 0.85, ry * 0.75, 6, 0.3, 0.12);
+	const moss = mossy ? jagged(cx - rx * 0.05, cy - ry * 0.7, rx * 0.7, ry * 0.3, 16) : undefined;
+	const mossShadow = mossy ? jagged(cx - rx * 0.12, cy - ry * 0.5, rx * 0.66, ry * 0.32, 12) : undefined;
 
 	// Leafy clumps along the moss, in a mix of greens
 	const tufts = mossy
 		? Array.from({ length: Math.round(rx / 20) }, () => ({
 				d: tuft(
-					cx - rx * 0.05 + rx * 0.62 * detailBetween(-0.85, 0.85),
-					cy - ry * 0.62 + ry * 0.26 * detailBetween(-0.9, 0.5),
+					cx - rx * 0.05 + rx * 0.7 * detailBetween(-0.85, 0.85),
+					cy - ry * 0.7 + ry * 0.3 * detailBetween(-0.9, 0.5),
 					rx * detailBetween(0.06, 0.14),
 				),
 				fill: leafTones[Math.floor(detail() * leafTones.length)],
 			}))
 		: [];
 
-	return { shadow, body, shade, light, sheen, pits, crack, crackWidth: Math.max(1.5, rx * 0.012), moss, tufts };
+	return { id: rockId++, cx, cy, rx, ry, body, lit, side, moss, mossShadow, tufts };
 };
 
 // Big boulders framing the scene at either side, drawn first
@@ -174,7 +145,8 @@ const boulders: Rock[] = [
 	rock(1350, 970, 360, 190, true),
 ];
 
-// A ring of stones around the opening, overlapping the door's edge
+// A ring of stones around the opening, overlapping the door's edge; some
+// worn round, most chipped flat
 const ring: Rock[] = [];
 const ringCount = 15;
 for (let i = 0; i < ringCount; i++) {
@@ -182,18 +154,51 @@ for (let i = 0; i < ringCount; i++) {
 	const dist = HOLE + between(48, 70);
 	const cx = CX + Math.cos(a) * dist;
 	const cy = CY + Math.sin(a) * dist * 0.96;
-	ring.push(rock(cx, cy, between(72, 100), between(58, 82), Math.sin(a) < -0.2));
+	ring.push(rock(cx, cy, between(72, 100), between(58, 82), Math.sin(a) < -0.2, i % 3 !== 0));
 }
 
-// Tree trunks fading into the dark behind the rocks
+// Hazy rocks far behind, to give the forest floor some depth
+const farRocks = [
+	[460, 860, 170, 110],
+	[600, 930, 120, 80],
+	[1130, 880, 150, 100],
+	[1010, 950, 110, 70],
+	[430, 140, 130, 90],
+	[1180, 120, 140, 90],
+].map(([x, y, rx, ry]) => facet(x, y, rx, ry, 7, 0.25));
+
+// Tree trunks at two depths: pale and hazy far away, dark and wide up close
 const trunks = [
-	{ x: 330, w: 70 },
-	{ x: 470, w: 46 },
-	{ x: 560, w: 30 },
-	{ x: 1060, w: 34 },
-	{ x: 1160, w: 52 },
-	{ x: 1290, w: 78 },
+	{ x: 200, w: 26, far: true },
+	{ x: 400, w: 22, far: true },
+	{ x: 640, w: 18, far: true },
+	{ x: 980, w: 20, far: true },
+	{ x: 1230, w: 24, far: true },
+	{ x: 1420, w: 28, far: true },
+	{ x: 330, w: 70, far: false },
+	{ x: 470, w: 46, far: false },
+	{ x: 560, w: 30, far: false },
+	{ x: 1060, w: 34, far: false },
+	{ x: 1160, w: 52, far: false },
+	{ x: 1290, w: 78, far: false },
 ];
+
+// Shafts of light slanting down through the canopy
+const shafts = [
+	{ x: 520, w: 70, delay: 0 },
+	{ x: 700, w: 120, delay: 3 },
+	{ x: 960, w: 90, delay: 1.5 },
+	{ x: 1140, w: 60, delay: 4.5 },
+].map((s) => ({
+	d: `M${s.x} -400L${s.x + s.w} -400L${s.x + s.w + 520} 1200L${s.x + 340} 1200Z`,
+	delay: s.delay,
+}));
+
+// Leaf clusters hanging from the canopy along the top
+const canopy = Array.from({ length: 16 }, (_, i) => ({
+	d: jagged(i * 110 - 40 + detailBetween(-30, 30), detailBetween(-30, 30), detailBetween(90, 150), detailBetween(50, 90), 12),
+	near: i % 2 === 0,
+}));
 
 // Vines hanging from the stones over the top of the door
 const vines = [-2.05, -1.72, -1.25, -0.95].map((a, i) => {
@@ -245,11 +250,15 @@ const rivets = Array.from({ length: 24 }, (_, i) => {
 	return { x: CX + Math.cos(a) * 207, y: CY + Math.sin(a) * 207 };
 });
 
-const fireflies = Array.from({ length: 16 }, () => ({
-	x: between(80, 1520),
-	y: between(80, 920),
-	delay: between(0, 6),
-	duration: between(4, 8),
+// Spread past the edges of the scene so tall phone screens get them too
+const fireflies = Array.from({ length: 70 }, () => ({
+	x: between(-100, 1700),
+	y: between(-350, 1350),
+	size: between(1.4, 3.4),
+	dx: between(-24, 24),
+	dy: between(-30, -8),
+	delay: between(0, 8),
+	duration: between(4, 9),
 }));
 ---
 
@@ -265,13 +274,54 @@ const fireflies = Array.from({ length: 16 }, () => ({
 					<stop offset="0%" stop-color="var(--door-metal-light)" />
 					<stop offset="100%" stop-color="var(--door-metal)" />
 				</radialGradient>
-				<!-- Grain laid over the rocks and leaves -->
-				<pattern id="door-specks" patternUnits="userSpaceOnUse" width="128" height="128">
-					<image href={specks} width="128" height="128" style="image-rendering: pixelated" />
-				</pattern>
-				<pattern id="door-mottle" patternUnits="userSpaceOnUse" width="640" height="640">
-					<image href={mottle} width="640" height="640" />
-				</pattern>
+				<!-- Rocks lit from the upper right -->
+				<linearGradient id="door-rock-fill" x1="1" y1="0" x2="0.1" y2="1">
+					<stop offset="0%" stop-color="var(--door-rock-light)" />
+					<stop offset="45%" stop-color="var(--door-rock)" />
+					<stop offset="100%" stop-color="var(--door-rock-dark)" />
+				</linearGradient>
+				<linearGradient id="door-lit" x1="1" y1="0" x2="0" y2="1">
+					<stop offset="0%" stop-color="var(--door-rock-light)" stop-opacity="0.95" />
+					<stop offset="100%" stop-color="var(--door-rock-light)" stop-opacity="0.15" />
+				</linearGradient>
+				<radialGradient id="door-ao">
+					<stop offset="0%" stop-color="#000" stop-opacity="0.6" />
+					<stop offset="100%" stop-color="#000" stop-opacity="0" />
+				</radialGradient>
+				<radialGradient id="door-halo" gradientUnits="userSpaceOnUse" cx={CX} cy={CY} r={HOLE + 260}>
+					<stop offset="45%" stop-color="var(--door-halo)" stop-opacity="0.28" />
+					<stop offset="100%" stop-color="var(--door-halo)" stop-opacity="0" />
+				</radialGradient>
+				<linearGradient id="door-shaft" x1="0" y1="0" x2="0" y2="1">
+					<stop offset="0%" stop-color="var(--door-shaft)" stop-opacity="0.16" />
+					<stop offset="100%" stop-color="var(--door-shaft)" stop-opacity="0" />
+				</linearGradient>
+				<linearGradient id="door-fog" x1="0" y1="0" x2="0" y2="1">
+					<stop offset="0%" stop-color="var(--door-fog)" stop-opacity="0" />
+					<stop offset="100%" stop-color="var(--door-fog)" stop-opacity="0.4" />
+				</linearGradient>
+				<radialGradient id="door-vignette" gradientUnits="userSpaceOnUse" cx={CX} cy={CY} r="1150">
+					<stop offset="35%" stop-color="#000" stop-opacity="0" />
+					<stop offset="100%" stop-color="#000" stop-opacity="0.7" />
+				</radialGradient>
+				<radialGradient id="door-firefly-glow">
+					<stop offset="0%" stop-color="var(--door-glow)" stop-opacity="0.75" />
+					<stop offset="100%" stop-color="var(--door-glow)" stop-opacity="0" />
+				</radialGradient>
+				{
+					[...boulders, ...ring].map((r) => (
+						<clipPath id={`door-rock-${r.id}`}>
+							<path d={r.body} />
+						</clipPath>
+					))
+				}
+				<!-- Everywhere except the opening, which has to stay clear once the door parts -->
+				<clipPath id="door-outside">
+					<path
+						clip-rule="evenodd"
+						d={`M${-W} ${-H}H${W * 2}V${H * 2}H${-W}Z M${CX - HOLE} ${CY} a${HOLE} ${HOLE} 0 1 0 ${HOLE * 2} 0 a${HOLE} ${HOLE} 0 1 0 ${-HOLE * 2} 0Z`}
+					/>
+				</clipPath>
 				<clipPath id="door-hole">
 					<circle cx={CX} cy={CY} r={HOLE} />
 				</clipPath>
@@ -311,7 +361,34 @@ const fireflies = Array.from({ length: 16 }, () => ({
 				fill-rule="evenodd"
 				d={`M${-W} ${-H}H${W * 2}V${H * 2}H${-W}Z M${CX - HOLE} ${CY} a${HOLE} ${HOLE} 0 1 0 ${HOLE * 2} 0 a${HOLE} ${HOLE} 0 1 0 ${-HOLE * 2} 0Z`}
 			/>
-			{trunks.map((t) => <rect x={t.x - t.w / 2} y={-H} width={t.w} height={H * 3} rx={t.w / 2} fill="var(--door-trunk)" />)}
+			<g clip-path="url(#door-outside)">
+				{
+					trunks
+						.filter((t) => t.far)
+						.map((t) => <rect x={t.x - t.w / 2} y={-H} width={t.w} height={H * 3} fill="var(--door-trunk-far)" />)
+				}
+				{farRocks.map((d) => <path d={d} fill="var(--door-rock-far)" />)}
+				<rect x={-W} y="600" width={W * 3} height="800" fill="url(#door-fog)" />
+				<g class="door-canopy">
+					{
+						canopy
+							.filter((c) => !c.near)
+							.map((c) => <path d={c.d} fill="var(--door-canopy-far)" transform="translate(50 40)" />)
+					}
+				</g>
+				<g class="door-shafts">
+					{shafts.map((s) => <path class="door-shaft" d={s.d} fill="url(#door-shaft)" style={`animation-delay: -${s.delay}s`} />)}
+				</g>
+				{
+					trunks
+						.filter((t) => !t.far)
+						.map((t) => <rect x={t.x - t.w / 2} y={-H} width={t.w} height={H * 3} rx={t.w / 2} fill="var(--door-trunk)" />)
+				}
+				<g class="door-canopy">
+					{canopy.filter((c) => c.near).map((c) => <path d={c.d} fill="var(--door-canopy)" />)}
+				</g>
+				<circle cx={CX} cy={CY} r={HOLE + 260} fill="url(#door-halo)" />
+			</g>
 
 			<!-- The two halves of the door, which slide apart into the rock -->
 			<g clip-path="url(#door-hole)">
@@ -327,26 +404,15 @@ const fireflies = Array.from({ length: 16 }, () => ({
 			{
 				[...boulders, ...ring].map((r) => (
 					<g>
-						<path d={r.shadow} fill="var(--door-rock-dark)" />
-						<path d={r.body} fill="var(--door-rock)" />
-						<path d={r.shade} fill="var(--door-rock-dark)" opacity="0.45" />
-						<path d={r.light} fill="var(--door-rock-light)" opacity="0.7" />
-						<path d={r.sheen} fill="var(--door-rock-light)" opacity="0.6" />
-						{r.pits.map((d) => <path d={d} fill="var(--door-rock-dark)" opacity="0.35" />)}
-						<path
-							d={r.crack}
-							fill="none"
-							stroke="var(--door-rock-dark)"
-							stroke-width={f(r.crackWidth)}
-							stroke-linecap="round"
-							stroke-linejoin="round"
-							opacity="0.45"
-						/>
-						{r.moss && <path d={r.moss} fill="var(--door-moss-dark)" opacity="0.9" />}
+						<ellipse cx={f(r.cx + r.rx * 0.08)} cy={f(r.cy + r.ry * 0.55)} rx={f(r.rx * 1.2)} ry={f(r.ry * 0.65)} fill="url(#door-ao)" />
+						<path d={r.body} fill="url(#door-rock-fill)" />
+						<g clip-path={`url(#door-rock-${r.id})`}>
+							<path d={r.lit} fill="url(#door-lit)" />
+							<path d={r.side} fill="var(--door-rock-dark)" opacity="0.5" />
+							{r.mossShadow && <path d={r.mossShadow} fill="var(--door-wall)" opacity="0.45" />}
+							{r.moss && <path d={r.moss} fill="var(--door-moss-dark)" />}
+						</g>
 						{r.tufts.map((t) => <path d={t.d} fill={t.fill} />)}
-						{['door-mottle', 'door-specks'].map((id) => (
-							<path d={`${r.shadow}${r.body}${r.tufts.map((t) => t.d).join('')}`} fill={`url(#${id})`} />
-						))}
 					</g>
 				))
 			}
@@ -378,15 +444,17 @@ const fireflies = Array.from({ length: 16 }, () => ({
 				))
 			}
 
+			<rect x={-W} y={-H} width={W * 3} height={H * 3} fill="url(#door-vignette)" pointer-events="none" />
+
 			{
 				fireflies.map((ff) => (
-					<circle
+					<g
 						class="door-firefly"
-						cx={f(ff.x)}
-						cy={f(ff.y)}
-						r="3"
-						style={`animation-delay: -${f(ff.delay)}s; animation-duration: ${f(ff.duration)}s`}
-					/>
+						style={`--dx: ${f(ff.dx)}px; --dy: ${f(ff.dy)}px; animation-delay: -${f(ff.delay)}s; animation-duration: ${f(ff.duration)}s`}
+					>
+						<circle cx={f(ff.x)} cy={f(ff.y)} r={f(ff.size * 6)} fill="url(#door-firefly-glow)" />
+						<circle cx={f(ff.x)} cy={f(ff.y)} r={f(ff.size)} fill="var(--door-glow)" />
+					</g>
 				))
 			}
 		</svg>
@@ -405,6 +473,7 @@ const fireflies = Array.from({ length: 16 }, () => ({
 		const right = intro.querySelector<SVGGElement>('.door-right')!;
 		const seam = intro.querySelector<SVGLineElement>('.door-seam')!;
 		const hint = intro.querySelector<HTMLElement>('.door-hint')!;
+		const shafts = intro.querySelector<SVGGElement>('.door-shafts')!;
 
 		const clamp = (v: number) => Math.min(1, Math.max(0, v));
 		const easeInOut = (t: number) => (t < 0.5 ? 4 * t * t * t : 1 - Math.pow(-2 * t + 2, 3) / 2);
@@ -423,6 +492,7 @@ const fireflies = Array.from({ length: 16 }, () => ({
 		window.scrollTo(0, 0);
 
 		const svg = scene.querySelector('svg')!;
+		const canopy = intro.querySelectorAll<SVGGElement>('.door-canopy');
 
 		const measure = () => {
 			// On tall screens, cropping to fill the height would cut off the archway,
@@ -433,9 +503,12 @@ const fireflies = Array.from({ length: 16 }, () => ({
 				const height = 820 / aspect;
 				svg.setAttribute('viewBox', `390 ${500 - height / 2} 820 ${height}`);
 				scale = innerWidth / 820;
+				// The canopy would hang partway down a tall screen, so leave it out
+				canopy.forEach((g) => (g.style.display = 'none'));
 			} else {
 				svg.setAttribute('viewBox', '0 0 1600 1000');
 				scale = Math.max(innerWidth / 1600, innerHeight / 1000);
+				canopy.forEach((g) => (g.style.display = ''));
 			}
 			// Zoom far enough that the opening covers the whole screen
 			endZoom = (Math.hypot(innerWidth, innerHeight) / 2 / (214 * scale)) * 1.2;
@@ -450,6 +523,10 @@ const fireflies = Array.from({ length: 16 }, () => ({
 			scene.style.transform = `scale(${1 + (endZoom - 1) * Math.pow(p, 2.2)})`;
 			intro.style.opacity = `${1 - clamp((p - 0.8) / 0.2)}`;
 			hint.style.opacity = `${1 - clamp(p / 0.08)}`;
+			// The light shafts are costly to repaint while zooming, so fade them out first
+			const shaftFade = 1 - clamp(p / 0.12);
+			shafts.style.opacity = `${shaftFade}`;
+			shafts.style.display = shaftFade ? '' : 'none';
 			// Let the page's own entrance animations play as it comes into view
 			if (p > 0.45) root.classList.remove('door-hold');
 		};
@@ -545,6 +622,13 @@ const fireflies = Array.from({ length: 16 }, () => ({
 		--door-wall: #070a06;
 		--door-wall-light: #141a11;
 		--door-trunk: #0d120b;
+		--door-trunk-far: #141c13;
+		--door-rock-far: #182116;
+		--door-canopy: #060905;
+		--door-canopy-far: #0e150c;
+		--door-fog: #3d4f3a;
+		--door-shaft: #d9eaa0;
+		--door-halo: #8fb85a;
 		--door-rock: #5c6452;
 		--door-rock-light: #7f8971;
 		--door-rock-dark: #343a2e;
@@ -573,6 +657,13 @@ const fireflies = Array.from({ length: 16 }, () => ({
 			--door-wall: #1d2619;
 			--door-wall-light: #34422b;
 			--door-trunk: #27321f;
+			--door-trunk-far: #34422c;
+			--door-rock-far: #3a4933;
+			--door-canopy: #18210f;
+			--door-canopy-far: #2a3820;
+			--door-fog: #7d9070;
+			--door-shaft: #eef5c8;
+			--door-halo: #b7d77a;
 			--door-rock: #8a9279;
 			--door-rock-light: #aab296;
 			--door-rock-dark: #5d6550;
@@ -622,9 +713,17 @@ const fireflies = Array.from({ length: 16 }, () => ({
 	}
 
 	.door-firefly {
-		fill: var(--door-glow);
-		filter: drop-shadow(0 0 4px var(--door-glow));
 		animation: door-firefly 6s ease-in-out infinite;
+	}
+
+	.door-shaft {
+		animation: door-shaft 9s ease-in-out infinite;
+	}
+
+	@keyframes door-shaft {
+		50% {
+			opacity: 0.45;
+		}
 	}
 
 	@keyframes door-firefly {
@@ -635,7 +734,7 @@ const fireflies = Array.from({ length: 16 }, () => ({
 		}
 		50% {
 			opacity: 0.9;
-			transform: translate(12px, -18px);
+			transform: translate(var(--dx), var(--dy));
 		}
 	}
 
