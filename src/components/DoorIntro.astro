@@ -313,10 +313,6 @@ const fireflies = Array.from({ length: 70 }, () => ({
 					<stop offset="0%" stop-color="var(--door-wall-light)" />
 					<stop offset="100%" stop-color="var(--door-wall)" />
 				</radialGradient>
-				<radialGradient id="door-metal" cx="40%" cy="35%" r="75%">
-					<stop offset="0%" stop-color="var(--door-metal-light)" />
-					<stop offset="100%" stop-color="var(--door-metal)" />
-				</radialGradient>
 				<!-- Rocks lit from the upper right -->
 				<linearGradient id="door-rock-fill" x1="1" y1="0" x2="0.1" y2="1">
 					<stop offset="0%" stop-color="var(--door-rock-light)" />
@@ -377,37 +373,6 @@ const fireflies = Array.from({ length: 70 }, () => ({
 						d={`M${-W} ${-H}H${W * 2}V${H * 2}H${-W}Z M${CX - HOLE} ${CY} a${HOLE} ${HOLE} 0 1 0 ${HOLE * 2} 0 a${HOLE} ${HOLE} 0 1 0 ${-HOLE * 2} 0Z`}
 					/>
 				</clipPath>
-				<clipPath id="door-hole">
-					<circle cx={CX} cy={CY} r={HOLE} />
-				</clipPath>
-				<clipPath id="door-left-half">
-					<rect x="0" y="0" width={CX} height={H} />
-				</clipPath>
-				<clipPath id="door-right-half">
-					<rect x={CX} y="0" width={CX} height={H} />
-				</clipPath>
-				<g id="door-face">
-					<circle cx={CX} cy={CY} r={DOOR} fill="url(#door-metal)" />
-					<circle cx={CX} cy={CY} r="196" fill="var(--door-panel)" />
-					<circle cx={CX} cy={CY} r="124" fill="none" stroke="var(--door-metal-dark)" stroke-width="2" opacity="0.6" />
-					{
-						spokes.map((s) => (
-							<line x1={f(s.x1)} y1={f(s.y1)} x2={f(s.x2)} y2={f(s.y2)} stroke="var(--door-metal-dark)" stroke-width="26" stroke-linecap="round" />
-						))
-					}
-					{
-						spokes.map((s) => (
-							<line x1={f(s.x1)} y1={f(s.y1)} x2={f(s.x2)} y2={f(s.y2)} stroke="var(--door-metal-light)" stroke-width="8" stroke-linecap="round" opacity="0.5" />
-						))
-					}
-					<circle cx={CX} cy={CY} r="200" fill="none" stroke="var(--door-metal-dark)" stroke-width="16" />
-					<polygon points={octagon(70)} fill="var(--door-metal-dark)" />
-					<polygon points={octagon(54)} fill="var(--door-panel)" stroke="var(--door-metal-light)" stroke-width="2" />
-					<text x={CX} y={CY + 15} text-anchor="middle" class="door-monogram">YX</text>
-					{rivets.map((r) => <circle cx={f(r.x)} cy={f(r.y)} r="3.5" fill="var(--door-metal-light)" />)}
-					<path d={blob(CX - 120, CY - 168, 60, 22, 8, 0.5)} fill="var(--door-moss)" opacity="0.75" />
-					<path d={blob(CX + 96, CY - 178, 48, 18, 8, 0.5)} fill="var(--door-moss)" opacity="0.7" />
-				</g>
 			</defs>
 
 			<!-- Dark forest wall with the opening cut out of it -->
@@ -459,17 +424,6 @@ const fireflies = Array.from({ length: 70 }, () => ({
 				<circle cx={CX} cy={CY} r={HOLE + 260} fill="url(#door-halo)" />
 			</g>
 
-			<!-- The two halves of the door, which slide apart into the rock -->
-			<g clip-path="url(#door-hole)">
-				<g class="door-left">
-					<use href="#door-face" clip-path="url(#door-left-half)" />
-				</g>
-				<g class="door-right">
-					<use href="#door-face" clip-path="url(#door-right-half)" />
-				</g>
-				<line class="door-seam" x1={CX} y1={CY - HOLE} x2={CX} y2={CY + HOLE} />
-			</g>
-
 			{
 				[...boulders, ...ring].map((r) => (
 					<g>
@@ -487,6 +441,86 @@ const fireflies = Array.from({ length: 70 }, () => ({
 			}
 
 			{
+				flowers.map((fl) => (
+					<g>
+						<circle cx={f(fl.x)} cy={f(fl.y)} r={f(fl.r)} fill="var(--door-flower)" />
+						<circle cx={f(fl.x)} cy={f(fl.y)} r={f(fl.r * 0.35)} fill="var(--door-flower-centre)" />
+					</g>
+				))
+			}
+
+		</svg>
+
+		<!-- The door, in its own layer so it can swing out in 3D on its hinge -->
+		<div class="door-swing">
+			<div class="door-leaf">
+				<!-- Stacked discs behind the face give the door its thickness -->
+				{Array.from({ length: 5 }, (_, i) => <div class="door-edge" style={`--depth: ${i + 1}`} />)}
+				<svg class="door-door" viewBox={`${CX - DOOR} ${CY - DOOR} ${DOOR * 2} ${DOOR * 2}`}>
+					<defs>
+						<radialGradient id="door-metal" cx="40%" cy="35%" r="75%">
+							<stop offset="0%" stop-color="var(--door-metal-light)" />
+							<stop offset="100%" stop-color="var(--door-metal)" />
+						</radialGradient>
+					</defs>
+					<g class="door-body">
+						<circle cx={CX} cy={CY} r={DOOR} fill="url(#door-metal)" />
+						<circle cx={CX} cy={CY} r="196" fill="var(--door-panel)" />
+						<circle cx={CX} cy={CY} r="124" fill="none" stroke="var(--door-metal-dark)" stroke-width="2" opacity="0.6" />
+						<circle cx={CX} cy={CY} r="200" fill="none" stroke="var(--door-metal-dark)" stroke-width="16" />
+						<g class="door-wheel">
+							{
+								spokes.map((s) => (
+									<line x1={f(s.x1)} y1={f(s.y1)} x2={f(s.x2)} y2={f(s.y2)} stroke="var(--door-metal-dark)" stroke-width="26" stroke-linecap="round" />
+								))
+							}
+							{
+								spokes.map((s) => (
+									<line x1={f(s.x1)} y1={f(s.y1)} x2={f(s.x2)} y2={f(s.y2)} stroke="var(--door-metal-light)" stroke-width="8" stroke-linecap="round" opacity="0.5" />
+								))
+							}
+							<polygon points={octagon(70)} fill="var(--door-metal-dark)" />
+							<polygon points={octagon(54)} fill="var(--door-panel)" stroke="var(--door-metal-light)" stroke-width="2" />
+							<text x={CX} y={CY + 15} text-anchor="middle" class="door-monogram">YX</text>
+						</g>
+						{rivets.map((r) => <circle cx={f(r.x)} cy={f(r.y)} r="3.5" fill="var(--door-metal-light)" />)}
+						<path d={blob(CX - 120, CY - 168, 60, 22, 8, 0.5)} fill="var(--door-moss-dark)" />
+						<path d={blob(CX + 96, CY - 178, 48, 18, 8, 0.5)} fill="var(--door-moss-dark)" />
+						<!-- Darkens the face as it turns away from the light -->
+						<circle class="door-turn-shade" cx={CX} cy={CY} r={DOOR} fill="#000" opacity="0" />
+					</g>
+				</svg>
+			</div>
+		</div>
+
+		<!-- The ring stones again, overlapping the closed door's rim; they fade
+		     once the door starts to swing out in front of them -->
+		<svg class="door-ring-front" viewBox={`0 0 ${W} ${H}`} preserveAspectRatio="xMidYMid slice">
+			<defs>
+				<clipPath id="door-disc">
+					<circle cx={CX} cy={CY} r={DOOR + 2} />
+				</clipPath>
+			</defs>
+			<g clip-path="url(#door-disc)">
+				{
+					ring.map((r) => (
+						<g>
+							<path d={r.body} fill="url(#door-rock-fill)" />
+							<g clip-path={`url(#door-rock-${r.id})`}>
+								<path d={r.lit} fill="url(#door-lit)" />
+								<path d={r.side} fill="var(--door-rock-dark)" opacity="0.5" />
+								{r.mossShadow && <path d={r.mossShadow} fill="var(--door-wall)" opacity="0.45" />}
+								{r.moss && <path d={r.moss} fill="var(--door-moss-dark)" />}
+							</g>
+							{r.tufts.map((t) => <path d={t.d} fill={t.fill} />)}
+						</g>
+					))
+				}
+			</g>
+		</svg>
+
+		<svg class="door-front" viewBox={`0 0 ${W} ${H}`} preserveAspectRatio="xMidYMid slice">
+			{
 				vines.map((v) => (
 					<g>
 						<path d={v.d} fill="none" stroke="var(--door-moss)" stroke-width="3" stroke-linecap="round" />
@@ -500,15 +534,6 @@ const fireflies = Array.from({ length: 70 }, () => ({
 								fill={leafTones[j % leafTones.length]}
 							/>
 						))}
-					</g>
-				))
-			}
-
-			{
-				flowers.map((fl) => (
-					<g>
-						<circle cx={f(fl.x)} cy={f(fl.y)} r={f(fl.r)} fill="var(--door-flower)" />
-						<circle cx={f(fl.x)} cy={f(fl.y)} r={f(fl.r * 0.35)} fill="var(--door-flower-centre)" />
 					</g>
 				))
 			}
@@ -538,9 +563,11 @@ const fireflies = Array.from({ length: 70 }, () => ({
 
 	if (intro && root.classList.contains('door-closed')) {
 		const scene = intro.querySelector<HTMLElement>('.door-scene')!;
-		const left = intro.querySelector<SVGGElement>('.door-left')!;
-		const right = intro.querySelector<SVGGElement>('.door-right')!;
-		const seam = intro.querySelector<SVGLineElement>('.door-seam')!;
+		const swing = intro.querySelector<HTMLElement>('.door-swing')!;
+		const leaf = intro.querySelector<HTMLElement>('.door-leaf')!;
+		const wheel = intro.querySelector<SVGGElement>('.door-wheel')!;
+		const turnShade = intro.querySelector<SVGCircleElement>('.door-turn-shade')!;
+		const ringFront = intro.querySelector<SVGSVGElement>('.door-ring-front')!;
 		const hint = intro.querySelector<HTMLElement>('.door-hint')!;
 		const shafts = intro.querySelector<SVGGElement>('.door-shafts')!;
 
@@ -560,7 +587,8 @@ const fireflies = Array.from({ length: 70 }, () => ({
 
 		window.scrollTo(0, 0);
 
-		const svg = scene.querySelector('svg')!;
+		const layers = scene.querySelectorAll('svg:not(.door-door)');
+		const setViewBox = (box: string) => layers.forEach((l) => l.setAttribute('viewBox', box));
 		const canopy = intro.querySelectorAll<SVGGElement>('.door-canopy');
 
 		const measure = () => {
@@ -568,27 +596,52 @@ const fireflies = Array.from({ length: 70 }, () => ({
 			// so fit its width instead and let the dark wall run above and below
 			const aspect = innerWidth / innerHeight;
 			let scale: number;
+			let originX: number;
+			let originY: number;
 			if (1000 * aspect < 820) {
 				const height = 820 / aspect;
-				svg.setAttribute('viewBox', `390 ${500 - height / 2} 820 ${height}`);
+				setViewBox(`390 ${500 - height / 2} 820 ${height}`);
 				scale = innerWidth / 820;
+				originX = -390 * scale;
+				originY = 0 - (500 - height / 2) * scale;
 				// The canopy would hang partway down a tall screen, so leave it out
 				canopy.forEach((g) => (g.style.display = 'none'));
 			} else {
-				svg.setAttribute('viewBox', '0 0 1600 1000');
+				setViewBox('0 0 1600 1000');
 				scale = Math.max(innerWidth / 1600, innerHeight / 1000);
+				originX = (innerWidth - 1600 * scale) / 2;
+				originY = (innerHeight - 1000 * scale) / 2;
 				canopy.forEach((g) => (g.style.display = ''));
 			}
+			// Hinge the door on its left edge, and view it from straight in front
+			const centreX = originX + 800 * scale;
+			const centreY = originY + 500 * scale;
+			const radius = 220 * scale;
+			Object.assign(leaf.style, {
+				left: `${centreX - radius}px`,
+				top: `${centreY - radius}px`,
+				width: `${radius * 2}px`,
+				height: `${radius * 2}px`,
+			});
+			leaf.style.setProperty('--slice', `${8 * scale}px`);
+			swing.style.perspectiveOrigin = `${centreX}px ${centreY}px`;
+			swing.style.perspective = `${440 * scale * 2.4}px`;
 			// Zoom far enough that the opening covers the whole screen
 			endZoom = (Math.hypot(innerWidth, innerHeight) / 2 / (214 * scale)) * 1.2;
 		};
 
 		const render = () => {
-			const open = easeInOut(clamp((p - 0.06) / 0.5));
-			left.style.transform = `translateX(${-open * 230}px)`;
-			right.style.transform = `translateX(${open * 230}px)`;
-			// Light leaks through the seam as the door unlocks, then fades as it parts
-			seam.style.opacity = `${clamp(p / 0.06) * (1 - open)}`;
+			// First the wheel spins to unlock, then the door swings out toward you
+			const turn = easeInOut(clamp((p - 0.02) / 0.28));
+			const open = easeInOut(clamp((p - 0.27) / 0.33));
+			wheel.setAttribute('transform', `rotate(${(-turn * 300).toFixed(2)} 800 500)`);
+			leaf.style.transform = `rotateY(${(-open * 84).toFixed(2)}deg)`;
+			leaf.classList.toggle('swinging', open > 0);
+			turnShade.setAttribute('opacity', (open * 0.55).toFixed(3));
+			// As its edge lifts out, the door passes in front of the stones around it
+			const front = 1 - clamp(open / 0.1);
+			ringFront.style.opacity = `${front}`;
+			ringFront.style.display = front ? '' : 'none';
 			scene.style.transform = `scale(${1 + (endZoom - 1) * Math.pow(p, 2.2)})`;
 			intro.style.opacity = `${1 - clamp((p - 0.8) / 0.2)}`;
 			hint.style.opacity = `${1 - clamp(p / 0.08)}`;
@@ -665,9 +718,14 @@ const fireflies = Array.from({ length: 70 }, () => ({
 				else target = 0;
 			}
 
-			const step = (target - p) * (1 - Math.exp(-(committed ? 3.5 : 10) * dt));
-			// Keep a minimum pace once committed so the end doesn't drag
-			p = committed ? Math.min(target, p + Math.max(step, 0.45 * dt)) : p + step;
+			if (committed) {
+				// A steady pace through the unlock and swing so they read, then
+				// speeding up for the push through the doorway
+				const speed = 0.45 + 1.2 * clamp((p - 0.55) / 0.2);
+				p = Math.min(1, p + speed * dt);
+			} else {
+				p += (target - p) * (1 - Math.exp(-10 * dt));
+			}
 			render();
 
 			if (committed && p >= 0.999) return finish();
@@ -761,22 +819,40 @@ const fireflies = Array.from({ length: 70 }, () => ({
 		will-change: transform;
 	}
 
-	svg {
+	svg,
+	.door-swing {
+		position: absolute;
+		inset: 0;
 		display: block;
 		width: 100%;
 		height: 100%;
 	}
 
-	.door-left,
-	.door-right {
+	.door-leaf {
+		position: absolute;
+		transform-origin: 0 50%;
+		transform-style: preserve-3d;
 		will-change: transform;
 	}
 
-	.door-seam {
-		stroke: var(--door-glow);
-		stroke-width: 3;
-		opacity: 0;
-		filter: drop-shadow(0 0 6px var(--door-glow));
+	.door-edge {
+		position: absolute;
+		inset: 0;
+		border-radius: 50%;
+		background: var(--door-metal-dark);
+		border: 2px solid var(--door-metal);
+		display: none;
+		transform: translateZ(calc(var(--depth) * var(--slice) * -1));
+	}
+
+	/* Hidden behind the face while it's shut, so only drawn once it swings */
+	.door-leaf.swinging .door-edge {
+		display: block;
+	}
+
+	.door-leaf .door-door {
+		position: absolute;
+		inset: 0;
 	}
 
 	.door-monogram {
