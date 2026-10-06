@@ -144,8 +144,8 @@ const fireflies = Array.from({ length: 16 }, () => ({
 }));
 ---
 
-<div class="door-intro">
-	<div class="door-scene" aria-hidden="true">
+<div class="door-intro" aria-hidden="true">
+	<div class="door-scene">
 		<svg viewBox={`0 0 ${W} ${H}`} preserveAspectRatio="xMidYMid slice">
 			<defs>
 				<radialGradient id="door-wall" cx="50%" cy="50%" r="70%">
@@ -260,8 +260,7 @@ const fireflies = Array.from({ length: 16 }, () => ({
 		</svg>
 	</div>
 
-	<p class="door-hint" aria-hidden="true">Scroll to enter <span>↓</span></p>
-	<button type="button" class="door-skip">Skip intro</button>
+	<p class="door-hint">Scroll to enter <span>↓</span></p>
 </div>
 
 <script>
@@ -274,7 +273,6 @@ const fireflies = Array.from({ length: 16 }, () => ({
 		const right = intro.querySelector<SVGGElement>('.door-right')!;
 		const seam = intro.querySelector<SVGLineElement>('.door-seam')!;
 		const hint = intro.querySelector<HTMLElement>('.door-hint')!;
-		const skip = intro.querySelector<HTMLButtonElement>('.door-skip')!;
 
 		const clamp = (v: number) => Math.min(1, Math.max(0, v));
 		const easeInOut = (t: number) => (t < 0.5 ? 4 * t * t * t : 1 - Math.pow(-2 * t + 2, 3) / 2);
@@ -405,10 +403,7 @@ const fireflies = Array.from({ length: 16 }, () => ({
 		window.addEventListener('touchmove', onTouchMove, { passive: false });
 		window.addEventListener('keydown', onKey);
 		window.addEventListener('resize', measure);
-		intro.addEventListener('click', (event) => {
-			if (event.target === skip) finish();
-			else commit();
-		});
+		intro.addEventListener('click', commit);
 		frame = requestAnimationFrame(tick);
 	}
 </script>
@@ -535,24 +530,5 @@ const fireflies = Array.from({ length: 16 }, () => ({
 		50% {
 			transform: translateY(5px);
 		}
-	}
-
-	.door-skip {
-		position: absolute;
-		top: 1.25rem;
-		right: 1.25rem;
-		padding: 0.45rem 0.9rem;
-		font-family: var(--font-mono);
-		font-size: 0.75rem;
-		letter-spacing: 0.06em;
-		color: var(--door-flower);
-		background: rgb(0 0 0 / 0.35);
-		border: 1px solid rgb(255 255 255 / 0.2);
-		border-radius: 999px;
-		cursor: pointer;
-	}
-
-	.door-skip:hover {
-		background: rgb(0 0 0 / 0.55);
 	}
 </style>
