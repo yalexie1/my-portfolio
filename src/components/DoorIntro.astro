@@ -167,31 +167,74 @@ const farRocks = [
 	[1180, 120, 140, 90],
 ].map(([x, y, rx, ry]) => facet(x, y, rx, ry, 7, 0.25));
 
-// Tree trunks at two depths: pale and hazy far away, dark and wide up close
-const trunks = [
-	{ x: 200, w: 26, far: true },
-	{ x: 400, w: 22, far: true },
-	{ x: 640, w: 18, far: true },
-	{ x: 980, w: 20, far: true },
-	{ x: 1230, w: 24, far: true },
-	{ x: 1420, w: 28, far: true },
-	{ x: 330, w: 70, far: false },
-	{ x: 470, w: 46, far: false },
-	{ x: 560, w: 30, far: false },
-	{ x: 1060, w: 34, far: false },
-	{ x: 1160, w: 52, far: false },
-	{ x: 1290, w: 78, far: false },
-];
+// Tree trunks at two depths: pale and hazy far away, dark and wide up close.
+// Each tapers upward, leans a little, and flares into roots near the ground.
+const trunk = (x: number, w: number, lean: number, ground: number) => {
+	const top = x + lean;
+	return [
+		`M${f(x - w * 1.1)} ${ground + 40}`,
+		`Q${f(x - w * 0.52)} ${ground - 30} ${f(x - w * 0.5)} ${ground - 200}`,
+		`L${f(top - w * 0.4)} -500`,
+		`L${f(top + w * 0.4)} -500`,
+		`L${f(x + w * 0.5)} ${ground - 200}`,
+		`Q${f(x + w * 0.52)} ${ground - 30} ${f(x + w * 1.1)} ${ground + 40}`,
+		`L${f(x + w * 1.1)} 1500L${f(x - w * 1.1)} 1500Z`,
+	].join('');
+};
 
-// Shafts of light slanting down through the canopy
+// A tapering limb reaching up and out from the side of a trunk
+const branch = (x: number, y: number, w: number, side: number) => {
+	const len = w * detailBetween(1.6, 2.6);
+	const ex = x + side * len;
+	const ey = y - len * detailBetween(0.5, 0.9);
+	const thick = w * 0.32;
+	return `M${f(x)} ${f(y)}Q${f(x + side * len * 0.5)} ${f(y - thick)} ${f(ex)} ${f(ey)}Q${f(x + side * len * 0.45)} ${f(y + thick * 0.6)} ${f(x)} ${f(y + thick * 2.4)}Z`;
+};
+
+const trunks = [
+	{ x: 200, w: 30, far: true },
+	{ x: 400, w: 26, far: true },
+	{ x: 660, w: 22, far: true },
+	{ x: 900, w: 18, far: true },
+	{ x: 1000, w: 24, far: true },
+	{ x: 1230, w: 28, far: true },
+	{ x: 1420, w: 32, far: true },
+	{ x: 330, w: 74, far: false },
+	{ x: 485, w: 48, far: false },
+	{ x: 575, w: 32, far: false },
+	{ x: 1045, w: 36, far: false },
+	{ x: 1160, w: 56, far: false },
+	{ x: 1300, w: 82, far: false },
+].map((t) => {
+	const lean = detailBetween(-0.6, 0.6) * t.w;
+	const ground = t.far ? 860 : 1000;
+	const sides = t.far ? [] : [detail() < 0.5 ? -1 : 1, detail() < 0.5 ? -1 : 1];
+	return {
+		...t,
+		d: trunk(t.x, t.w, lean, ground),
+		branches: sides.map((side, i) => {
+			const y = detailBetween(40, 260) + i * 200;
+			// Follow the trunk's lean so the limb starts at its edge
+			const along = lean * (1 - (y + 500) / (ground + 500));
+			return branch(t.x + along + side * t.w * 0.4, y, t.w, side);
+		}),
+	};
+});
+
+// Shafts of light slanting down through the canopy, each swaying slowly
+// from where it breaks through the leaves
 const shafts = [
-	{ x: 520, w: 70, delay: 0 },
-	{ x: 700, w: 120, delay: 3 },
-	{ x: 960, w: 90, delay: 1.5 },
-	{ x: 1140, w: 60, delay: 4.5 },
-].map((s) => ({
+	{ x: 520, w: 70 },
+	{ x: 700, w: 130 },
+	{ x: 960, w: 90 },
+	{ x: 1140, w: 60 },
+	{ x: 240, w: 50 },
+	{ x: 1330, w: 80 },
+].map((s, i) => ({
 	d: `M${s.x} -400L${s.x + s.w} -400L${s.x + s.w + 520} 1200L${s.x + 340} 1200Z`,
-	delay: s.delay,
+	origin: `${s.x + s.w / 2}px -400px`,
+	delay: i * 2.3,
+	duration: 11 + (i % 3) * 3,
 }));
 
 // Leaf clusters hanging from the canopy along the top
@@ -292,8 +335,20 @@ const fireflies = Array.from({ length: 70 }, () => ({
 					<stop offset="45%" stop-color="var(--door-halo)" stop-opacity="0.28" />
 					<stop offset="100%" stop-color="var(--door-halo)" stop-opacity="0" />
 				</radialGradient>
+				<!-- Round trunks: shadowed on the left, catching light on the right -->
+				<linearGradient id="door-trunk">
+					<stop offset="0%" stop-color="var(--door-trunk-dark)" />
+					<stop offset="55%" stop-color="var(--door-trunk)" />
+					<stop offset="82%" stop-color="var(--door-trunk-light)" />
+					<stop offset="100%" stop-color="var(--door-trunk)" />
+				</linearGradient>
+				<linearGradient id="door-trunk-far">
+					<stop offset="0%" stop-color="var(--door-trunk-far)" />
+					<stop offset="80%" stop-color="var(--door-trunk-far-light)" />
+					<stop offset="100%" stop-color="var(--door-trunk-far)" />
+				</linearGradient>
 				<linearGradient id="door-shaft" x1="0" y1="0" x2="0" y2="1">
-					<stop offset="0%" stop-color="var(--door-shaft)" stop-opacity="0.16" />
+					<stop offset="0%" stop-color="var(--door-shaft)" stop-opacity="0.2" />
 					<stop offset="100%" stop-color="var(--door-shaft)" stop-opacity="0" />
 				</linearGradient>
 				<linearGradient id="door-fog" x1="0" y1="0" x2="0" y2="1">
@@ -365,7 +420,7 @@ const fireflies = Array.from({ length: 70 }, () => ({
 				{
 					trunks
 						.filter((t) => t.far)
-						.map((t) => <rect x={t.x - t.w / 2} y={-H} width={t.w} height={H * 3} fill="var(--door-trunk-far)" />)
+						.map((t) => <path d={t.d} fill="url(#door-trunk-far)" />)
 				}
 				{farRocks.map((d) => <path d={d} fill="var(--door-rock-far)" />)}
 				<rect x={-W} y="600" width={W * 3} height="800" fill="url(#door-fog)" />
@@ -377,12 +432,26 @@ const fireflies = Array.from({ length: 70 }, () => ({
 					}
 				</g>
 				<g class="door-shafts">
-					{shafts.map((s) => <path class="door-shaft" d={s.d} fill="url(#door-shaft)" style={`animation-delay: -${s.delay}s`} />)}
+					{
+						shafts.map((s) => (
+							<path
+								class="door-shaft"
+								d={s.d}
+								fill="url(#door-shaft)"
+								style={`transform-origin: ${s.origin}; animation-delay: -${s.delay}s; animation-duration: ${s.duration}s`}
+							/>
+						))
+					}
 				</g>
 				{
 					trunks
 						.filter((t) => !t.far)
-						.map((t) => <rect x={t.x - t.w / 2} y={-H} width={t.w} height={H * 3} rx={t.w / 2} fill="var(--door-trunk)" />)
+						.map((t) => (
+							<g>
+								{t.branches.map((d) => <path d={d} fill="url(#door-trunk)" />)}
+								<path d={t.d} fill="url(#door-trunk)" />
+							</g>
+						))
 				}
 				<g class="door-canopy">
 					{canopy.filter((c) => c.near).map((c) => <path d={c.d} fill="var(--door-canopy)" />)}
@@ -621,8 +690,11 @@ const fireflies = Array.from({ length: 70 }, () => ({
 	.door-intro {
 		--door-wall: #070a06;
 		--door-wall-light: #141a11;
-		--door-trunk: #0d120b;
-		--door-trunk-far: #141c13;
+		--door-trunk: #1d2618;
+		--door-trunk-dark: #0b0f09;
+		--door-trunk-light: #46573a;
+		--door-trunk-far: #182217;
+		--door-trunk-far-light: #26341f;
 		--door-rock-far: #182116;
 		--door-canopy: #060905;
 		--door-canopy-far: #0e150c;
@@ -656,8 +728,11 @@ const fireflies = Array.from({ length: 70 }, () => ({
 		.door-intro {
 			--door-wall: #1d2619;
 			--door-wall-light: #34422b;
-			--door-trunk: #27321f;
-			--door-trunk-far: #34422c;
+			--door-trunk: #2f3b25;
+			--door-trunk-dark: #1a2213;
+			--door-trunk-light: #63764f;
+			--door-trunk-far: #3a4a31;
+			--door-trunk-far-light: #4c5e40;
 			--door-rock-far: #3a4933;
 			--door-canopy: #18210f;
 			--door-canopy-far: #2a3820;
@@ -717,11 +792,18 @@ const fireflies = Array.from({ length: 70 }, () => ({
 	}
 
 	.door-shaft {
-		animation: door-shaft 9s ease-in-out infinite;
+		transform-box: view-box;
+		animation: door-shaft 12s ease-in-out infinite;
 	}
 
 	@keyframes door-shaft {
+		0%,
+		100% {
+			transform: rotate(-2.5deg);
+			opacity: 1;
+		}
 		50% {
+			transform: rotate(2.5deg);
 			opacity: 0.45;
 		}
 	}
