@@ -235,8 +235,14 @@ const contact = {
 					(entries) => {
 						for (const entry of entries) {
 							if (!entry.isIntersecting) continue;
-							entry.target.classList.replace('will-reveal', 'revealed');
-							observer.unobserve(entry.target);
+							// Roles reveal together, so one only peeking in from the side still shows
+							const group = entry.target.classList.contains('job')
+								? entry.target.parentElement?.querySelectorAll('.job.will-reveal') ?? []
+								: [entry.target];
+							for (const el of group) {
+								el.classList.replace('will-reveal', 'revealed');
+								observer.unobserve(el);
+							}
 						}
 					},
 					{ threshold: 0.2 },
@@ -561,6 +567,9 @@ const contact = {
 	/* Arrows sit in the gutters either side of the roles, centred on them */
 	.timeline-wrap {
 		position: relative;
+		/* Let the grid column shrink to the screen; otherwise the row of roles
+		   stretches it, widening the whole page on phones */
+		min-width: 0;
 	}
 
 	.timeline-arrow {
@@ -1062,6 +1071,28 @@ const contact = {
 		.timeline {
 			--timeline-gap: 1.5rem;
 			grid-auto-columns: 82%;
+		}
+
+		/* No gutters to hold the arrows on phones, so they sit in a row below the roles */
+		.timeline-wrap {
+			display: flex;
+			flex-wrap: wrap;
+			justify-content: flex-end;
+			gap: 0.75rem;
+		}
+
+		/* Only one role is in view, so each box fits its own text rather than the tallest role */
+		.timeline {
+			order: -1;
+			flex: 1 1 100%;
+			align-items: start;
+		}
+
+		.timeline-arrow,
+		.timeline-arrow.prev,
+		.timeline-arrow.next {
+			position: static;
+			translate: none;
 		}
 	}
 </style>
