@@ -12,6 +12,8 @@ const CY = H / 2;
 const HOLE = 214;
 const DOOR = 220;
 
+import { deflateSync } from 'node:zlib';
+
 // Deterministic randomness so the rocks keep their shape between visits
 let seed = 7;
 const rand = () => {
@@ -19,6 +21,13 @@ const rand = () => {
 	return (seed - 1) / 2147483646;
 };
 const between = (lo: number, hi: number) => lo + rand() * (hi - lo);
+// Surface detail draws from its own sequence so it doesn't reshape the rocks
+let detailSeed = 23;
+const detail = () => {
+	detailSeed = (detailSeed * 16807) % 2147483647;
+	return (detailSeed - 1) / 2147483646;
+};
+const detailBetween = (lo: number, hi: number) => lo + detail() * (hi - lo);
 const f = (n: number) => n.toFixed(1);
 
 // A lumpy closed shape around a centre, smoothed with Catmull-Rom curves
@@ -41,19 +50,119 @@ const blob = (cx: number, cy: number, rx: number, ry: number, lumps = 9, jitter 
 	return d + 'Z';
 };
 
+// Tiny RGBA PNG encoder, used to bake grain textures at build time. A live
+// SVG noise filter would be recomputed on every frame of the zoom.
+const crcTable = Array.from({ length: 256 }, (_, n) => {
+	let c = n;
+	for (let k = 0; k < 8; k++) c = c & 1 ? 0xedb88320 ^ (c >>> 1) : c >>> 1;
+	return c >>> 0;
+});
+const crc = (buf: Buffer) => {
+	let c = 0xffffffff;
+	for (const b of buf) c = crcTable[(c ^ b) & 0xff] ^ (c >>> 8);
+	return (c ^ 0xffffffff) >>> 0;
+};
+const chunk = (type: string, data: Buffer) => {
+	const len = Buffer.alloc(4);
+	len.writeUInt32BE(data.length);
+	const body = Buffer.concat([Buffer.from(type), data]);
+	const sum = Buffer.alloc(4);
+	sum.writeUInt32BE(crc(body));
+	return Buffer.concat([len, body, sum]);
+};
+const png = (size: number, pixel: (x: number, y: number) => [number, number, number, number]) => {
+	const raw = Buffer.alloc(size * (size * 4 + 1));
+	for (let y = 0; y < size; y++)
+		for (let x = 0; x < size; x++) raw.set(pixel(x, y), y * (size * 4 + 1) + 1 + x * 4);
+	const header = Buffer.alloc(13);
+	header.writeUInt32BE(size, 0);
+	header.writeUInt32BE(size, 4);
+	header.set([8, 6, 0, 0, 0], 8);
+	const file = Buffer.concat([
+		Buffer.from([137, 80, 78, 71, 13, 10, 26, 10]),
+		chunk('IHDR', header),
+		chunk('IDAT', deflateSync(raw)),
+		chunk('IEND', Buffer.alloc(0)),
+	]);
+	return `data:image/png;base64,${file.toString('base64')}`;
+};
+
+// Fine specks, some dark and some pale, like a stippled print
+const specks = png(128, () => {
+	const v = detail();
+	if (v < 0.13) return [20, 24, 16, Math.round(55 + detail() * 75)];
+	if (v > 0.93) return [236, 240, 220, Math.round(40 + detail() * 70)];
+	return [0, 0, 0, 0];
+});
+// Broad blotches: a coarse grid of random shades, smoothed out when stretched
+const mottle = png(32, () => [16, 20, 12, Math.round(Math.max(0, detail() - 0.35) * 150)]);
+
+// A spiky clump of leaves, alternating long and short points
+const tuft = (cx: number, cy: number, size: number) => {
+	const points = 9 + Math.floor(detail() * 5);
+	let d = '';
+	for (let i = 0; i < points * 2; i++) {
+		const a = (i / (points * 2)) * Math.PI * 2 + detailBetween(-0.15, 0.15);
+		const r = size * (i % 2 ? detailBetween(0.25, 0.45) : detailBetween(0.6, 1.15));
+		// Points reach up more than down, like leaves growing toward the light
+		const squash = Math.sin(a) > 0 ? 0.55 : 1;
+		d += `${i ? 'L' : 'M'}${f(cx + Math.cos(a) * r)} ${f(cy + Math.sin(a) * r * squash)}`;
+	}
+	return d + 'Z';
+};
+
+const leafTones = ['var(--door-moss-dark)', 'var(--door-moss)', 'var(--door-moss)', 'var(--door-moss-light)'];
+
 interface Rock {
 	shadow: string;
 	body: string;
+	shade: string;
 	light: string;
+	sheen: string;
+	pits: string[];
+	crack: string;
+	crackWidth: number;
 	moss?: string;
+	tufts: { d: string; fill: string }[];
 }
 
-const rock = (cx: number, cy: number, rx: number, ry: number, mossy: boolean): Rock => ({
-	shadow: blob(cx + 4, cy + ry * 0.12, rx * 1.02, ry, 9, 0.18),
-	body: blob(cx, cy, rx, ry, 9, 0.2),
-	light: blob(cx - rx * 0.18, cy - ry * 0.3, rx * 0.6, ry * 0.42, 7, 0.3),
-	moss: mossy ? blob(cx - rx * 0.05, cy - ry * 0.62, rx * 0.62, ry * 0.26, 8, 0.45) : undefined,
-});
+const rock = (cx: number, cy: number, rx: number, ry: number, mossy: boolean): Rock => {
+	const shadow = blob(cx + 4, cy + ry * 0.12, rx * 1.02, ry, 9, 0.18);
+	const body = blob(cx, cy, rx, ry, 9, 0.2);
+	const light = blob(cx - rx * 0.18, cy - ry * 0.3, rx * 0.6, ry * 0.42, 7, 0.3);
+	const moss = mossy ? blob(cx - rx * 0.05, cy - ry * 0.62, rx * 0.62, ry * 0.26, 8, 0.45) : undefined;
+
+	// Extra planes of light and shadow, a few pits, and a crack, so the faces aren't flat
+	const shadeBlob = (ox: number, oy: number, sx: number, sy: number) =>
+		blob(cx + rx * ox, cy + ry * oy, rx * sx, ry * sy, 7, 0.4);
+	const shade = shadeBlob(0.28, 0.32, 0.5, 0.34);
+	const sheen = shadeBlob(detailBetween(-0.4, -0.1), detailBetween(-0.45, -0.3), 0.26, 0.12);
+	const pits = Array.from({ length: 2 + Math.floor(detail() * 3) }, () =>
+		shadeBlob(detailBetween(-0.55, 0.55), detailBetween(-0.1, 0.55), detailBetween(0.04, 0.1), detailBetween(0.03, 0.07)),
+	);
+	let x = cx + rx * detailBetween(-0.35, 0.35);
+	let y = cy - ry * detailBetween(0.05, 0.25);
+	let crack = `M${f(x)} ${f(y)}`;
+	for (let i = 0; i < 4; i++) {
+		x += rx * detailBetween(-0.1, 0.1);
+		y += ry * detailBetween(0.08, 0.15);
+		crack += `L${f(x)} ${f(y)}`;
+	}
+
+	// Leafy clumps along the moss, in a mix of greens
+	const tufts = mossy
+		? Array.from({ length: Math.round(rx / 14) }, () => ({
+				d: tuft(
+					cx - rx * 0.05 + rx * 0.62 * detailBetween(-0.85, 0.85),
+					cy - ry * 0.62 + ry * 0.26 * detailBetween(-0.9, 0.5),
+					rx * detailBetween(0.06, 0.14),
+				),
+				fill: leafTones[Math.floor(detail() * leafTones.length)],
+			}))
+		: [];
+
+	return { shadow, body, shade, light, sheen, pits, crack, crackWidth: Math.max(1.5, rx * 0.012), moss, tufts };
+};
 
 // Big boulders framing the scene at either side, drawn first
 const boulders: Rock[] = [
@@ -156,6 +265,13 @@ const fireflies = Array.from({ length: 16 }, () => ({
 					<stop offset="0%" stop-color="var(--door-metal-light)" />
 					<stop offset="100%" stop-color="var(--door-metal)" />
 				</radialGradient>
+				<!-- Grain laid over the rocks and leaves -->
+				<pattern id="door-specks" patternUnits="userSpaceOnUse" width="128" height="128">
+					<image href={specks} width="128" height="128" style="image-rendering: pixelated" />
+				</pattern>
+				<pattern id="door-mottle" patternUnits="userSpaceOnUse" width="640" height="640">
+					<image href={mottle} width="640" height="640" />
+				</pattern>
 				<clipPath id="door-hole">
 					<circle cx={CX} cy={CY} r={HOLE} />
 				</clipPath>
@@ -213,8 +329,24 @@ const fireflies = Array.from({ length: 16 }, () => ({
 					<g>
 						<path d={r.shadow} fill="var(--door-rock-dark)" />
 						<path d={r.body} fill="var(--door-rock)" />
+						<path d={r.shade} fill="var(--door-rock-dark)" opacity="0.45" />
 						<path d={r.light} fill="var(--door-rock-light)" opacity="0.7" />
-						{r.moss && <path d={r.moss} fill="var(--door-moss)" opacity="0.85" />}
+						<path d={r.sheen} fill="var(--door-rock-light)" opacity="0.6" />
+						{r.pits.map((d) => <path d={d} fill="var(--door-rock-dark)" opacity="0.55" />)}
+						<path
+							d={r.crack}
+							fill="none"
+							stroke="var(--door-rock-dark)"
+							stroke-width={f(r.crackWidth)}
+							stroke-linecap="round"
+							stroke-linejoin="round"
+							opacity="0.7"
+						/>
+						{r.moss && <path d={r.moss} fill="var(--door-moss-dark)" opacity="0.9" />}
+						{r.tufts.map((t) => <path d={t.d} fill={t.fill} />)}
+						{['door-mottle', 'door-specks'].map((id) => (
+							<path d={`${r.shadow}${r.body}${r.tufts.map((t) => t.d).join('')}`} fill={`url(#${id})`} />
+						))}
 					</g>
 				))
 			}
@@ -223,14 +355,14 @@ const fireflies = Array.from({ length: 16 }, () => ({
 				vines.map((v) => (
 					<g>
 						<path d={v.d} fill="none" stroke="var(--door-moss)" stroke-width="3" stroke-linecap="round" />
-						{v.leaves.map((l) => (
+						{v.leaves.map((l, j) => (
 							<ellipse
 								cx={f(l.x)}
 								cy={f(l.y)}
 								rx={f(l.size)}
 								ry={f(l.size * 0.5)}
 								transform={`rotate(${l.angle} ${f(l.x)} ${f(l.y)})`}
-								fill="var(--door-moss)"
+								fill={leafTones[j % leafTones.length]}
 							/>
 						))}
 					</g>
@@ -417,6 +549,8 @@ const fireflies = Array.from({ length: 16 }, () => ({
 		--door-rock-light: #7f8971;
 		--door-rock-dark: #343a2e;
 		--door-moss: #6f9a3e;
+		--door-moss-dark: #3c5e2c;
+		--door-moss-light: #a6c257;
 		--door-metal: #222a24;
 		--door-metal-light: #4a574b;
 		--door-metal-dark: #151a16;
