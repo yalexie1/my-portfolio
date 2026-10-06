@@ -90,12 +90,12 @@ const png = (size: number, pixel: (x: number, y: number) => [number, number, num
 // Fine specks, some dark and some pale, like a stippled print
 const specks = png(128, () => {
 	const v = detail();
-	if (v < 0.13) return [20, 24, 16, Math.round(55 + detail() * 75)];
-	if (v > 0.93) return [236, 240, 220, Math.round(40 + detail() * 70)];
+	if (v < 0.07) return [20, 24, 16, Math.round(40 + detail() * 50)];
+	if (v > 0.975) return [236, 240, 220, Math.round(30 + detail() * 40)];
 	return [0, 0, 0, 0];
 });
 // Broad blotches: a coarse grid of random shades, smoothed out when stretched
-const mottle = png(32, () => [16, 20, 12, Math.round(Math.max(0, detail() - 0.35) * 150)]);
+const mottle = png(32, () => [16, 20, 12, Math.round(Math.max(0, detail() - 0.4) * 80)]);
 
 // A spiky clump of leaves, alternating long and short points
 const tuft = (cx: number, cy: number, size: number) => {
@@ -151,7 +151,7 @@ const rock = (cx: number, cy: number, rx: number, ry: number, mossy: boolean): R
 
 	// Leafy clumps along the moss, in a mix of greens
 	const tufts = mossy
-		? Array.from({ length: Math.round(rx / 14) }, () => ({
+		? Array.from({ length: Math.round(rx / 20) }, () => ({
 				d: tuft(
 					cx - rx * 0.05 + rx * 0.62 * detailBetween(-0.85, 0.85),
 					cy - ry * 0.62 + ry * 0.26 * detailBetween(-0.9, 0.5),
@@ -332,7 +332,7 @@ const fireflies = Array.from({ length: 16 }, () => ({
 						<path d={r.shade} fill="var(--door-rock-dark)" opacity="0.45" />
 						<path d={r.light} fill="var(--door-rock-light)" opacity="0.7" />
 						<path d={r.sheen} fill="var(--door-rock-light)" opacity="0.6" />
-						{r.pits.map((d) => <path d={d} fill="var(--door-rock-dark)" opacity="0.55" />)}
+						{r.pits.map((d) => <path d={d} fill="var(--door-rock-dark)" opacity="0.35" />)}
 						<path
 							d={r.crack}
 							fill="none"
@@ -340,7 +340,7 @@ const fireflies = Array.from({ length: 16 }, () => ({
 							stroke-width={f(r.crackWidth)}
 							stroke-linecap="round"
 							stroke-linejoin="round"
-							opacity="0.7"
+							opacity="0.45"
 						/>
 						{r.moss && <path d={r.moss} fill="var(--door-moss-dark)" opacity="0.9" />}
 						{r.tufts.map((t) => <path d={t.d} fill={t.fill} />)}
