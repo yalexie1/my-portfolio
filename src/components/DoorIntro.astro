@@ -739,10 +739,12 @@ const geckoLegs = [
 		const frogBody = frog.querySelector<SVGGElement>('.frog-body')!;
 		const frogThroat = frog.querySelector<SVGEllipseElement>('.frog-throat')!;
 		const frogLids = frog.querySelectorAll<SVGEllipseElement>('.frog-lid');
+		// Each sits just into the moss on the boulder's ridge, which peaks near
+		// x 255 and falls away to either side
 		const frogSpots = [
-			[290, 790],
-			[200, 800],
-			[370, 792],
+			[250, 783],
+			[180, 798],
+			[320, 796],
 		];
 		const hop = { from: 0, to: 0, t: 1, wait: random(3, 6), blink: random(1, 4), clock: 0, landed: 1 };
 
